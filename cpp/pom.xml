@@ -1,4 +1,5 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 
 	<parent>
@@ -10,13 +11,10 @@
 	<artifactId>cpp</artifactId>
 	<name>JavaCC default C++ code generator: cpp</name>
 	<description>JavaCC default C++ code generator: cpp</description>
-	
+
 	<properties>
 		<root>${basedir}/../..</root>
 	</properties>
-	<build>
-		<finalName>javacc-${project.artifactId}-${project.version}</finalName>
-	</build>
 	<profiles>
 		<profile>
 			<id>run-its</id>
@@ -68,9 +66,10 @@
 								<configuration>
 									<projectsDirectory>bugs</projectsDirectory>
 									<settingsFile>bugs/settings.xml</settingsFile>
- 								</configuration>
+								</configuration>
 							</execution>
 
+<!-- 
 							<execution>
 								<id>integration-test-cpp-examples</id>
 								<goals>
@@ -80,10 +79,10 @@
 								<configuration>
 									<projectsDirectory>examples</projectsDirectory>
 									<settingsFile>examples/settings.xml</settingsFile>
-	 								<pomExcludes>
-	 									<pomExclude>MailProcessing/pom.xml</pomExclude>
-	 								</pomExcludes>
- 								</configuration>
+									<pomExcludes>
+										<pomExclude>MailProcessing/pom.xml</pomExclude>
+									</pomExcludes>
+								</configuration>
 							</execution>
 							<execution>
 								<id>integration-test-cpp-grammars</id>
@@ -94,16 +93,95 @@
 								<configuration>
 									<projectsDirectory>grammars</projectsDirectory>
 									<settingsFile>grammars/settings.xml</settingsFile>
-	 								<pomExcludes>
-	 									<pomExclude>asn1/pom.xml</pomExclude>
-	 									<pomExclude>cobol/pom.xml</pomExclude>
-	 								</pomExcludes>
- 								</configuration>
+									<pomExcludes>
+										<pomExclude>asn1/pom.xml</pomExclude>
+										<pomExclude>cobol/pom.xml</pomExclude>
+									</pomExcludes>
+								</configuration>
 							</execution>
-						</executions>
+ -->
+ 						</executions>
 					</plugin>
 				</plugins>
 			</build>
 		</profile>
 	</profiles>
+	<build>
+		<finalName>javacc-${project.artifactId}-${project.version}</finalName>
+		<plugins>
+			<plugin>
+				<artifactId>maven-install-plugin</artifactId>
+				<version>2.4</version>
+				<executions>
+					<execution>
+						<id>default-install</id>
+						<phase>install</phase>
+						<goals>
+							<goal>install</goal>
+						</goals>
+					</execution>
+				</executions>
+				<configuration>
+					<skip>true</skip>
+				</configuration>
+			</plugin>
+			<plugin>
+				<artifactId>maven-install-plugin</artifactId>
+				<version>2.4</version>
+				<executions>
+					<execution>
+						<id>default-install</id>
+						<phase>install</phase>
+						<goals>
+							<goal>install-file</goal>
+						</goals>
+					</execution>
+				</executions>
+				<configuration>
+					<file>${project.basedir}/target/javacc-${project.artifactId}-${project.version}.jar</file>
+					<groupId>${project.groupId}</groupId>
+					<artifactId>javacc-${project.artifactId}</artifactId>
+					<version>${project.version}</version>
+					<packaging>jar</packaging>
+				</configuration>
+			</plugin>
+			<plugin>
+				<artifactId>maven-deploy-plugin</artifactId>
+				<version>2.4</version>
+				<executions>
+					<execution>
+						<id>default-deploy</id>
+						<phase>deploy</phase>
+						<goals>
+							<goal>deploy</goal>
+						</goals>
+					</execution>
+				</executions>
+				<configuration>
+					<skip>true</skip>
+				</configuration>
+			</plugin>
+			<plugin>
+				<artifactId>maven-deploy-plugin</artifactId>
+				<version>2.4</version>
+				<executions>
+					<execution>
+						<id>default-deploy</id>
+						<phase>deploy</phase>
+						<goals>
+							<goal>deploy-file</goal>
+						</goals>
+					</execution>
+				</executions>
+				<configuration>
+					<file>${project.basedir}/target/javacc-${project.artifactId}-${project.version}.jar</file>
+					<groupId>${project.groupId}</groupId>
+					<artifactId>javacc-${project.artifactId}</artifactId>
+					<version>${project.version}</version>
+					<packaging>jar</packaging>
+				</configuration>
+			</plugin>
+
+		</plugins>
+	</build>
 </project>
