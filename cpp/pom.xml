@@ -8,8 +8,8 @@
 	</parent>
 	<groupId>org.javacc.generator.cpp</groupId>
 	<artifactId>cpp</artifactId>
-	<name>JavaCC default C++ code generator</name>
-	<description>JavaCC default C++ code generator</description>
+	<name>JavaCC default C++ code generator: cpp</name>
+	<description>JavaCC default C++ code generator: cpp</description>
 	
 	<properties>
 		<root>${basedir}/../..</root>

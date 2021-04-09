@@ -43,4 +43,6 @@
   	<module>it</module>
   	<module>cpp</module>
   </modules>
+  <name>JavaCC default C++ code generator</name>
+  <description>JavaCC default C++ code generator</description>
 </project>
