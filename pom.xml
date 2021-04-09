@@ -8,14 +8,14 @@
 	</parent>
   <groupId>org.javacc.generator</groupId>
   <artifactId>cpp</artifactId>
-  <version>8.0.0</version>
+  <version>8.0.1-SNAPSHOT</version>
   <packaging>pom</packaging>
   
  	<scm>
 		<connection>scm:git:https://git@github.com/javacc/javacc-8-cpp.git</connection>
 		<developerConnection>scm:git:ssh://git@github.com/javacc/javacc-8-cpp.git</developerConnection>
 		<url>scm:git:ssh://git@github.com/javacc/javacc-8-cpp.git</url>
-		<tag>cpp-8.0.0</tag>
+		<tag>HEAD</tag>
 	</scm>
 	<properties>
 		<javacc.core>8.0.0</javacc.core>
