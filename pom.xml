@@ -41,6 +41,6 @@
   
   <modules>
   	<module>it</module>
-  	<module>javacc-cpp</module>
+  	<module>cpp</module>
   </modules>
 </project>
