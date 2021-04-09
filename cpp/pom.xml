@@ -15,7 +15,7 @@
 		<root>${basedir}/../..</root>
 	</properties>
 	<build>
-		<finalName>javacc-${artifactId}-${version}</finalName>
+		<finalName>javacc-${project.artifactId}-${project.version}</finalName>
 	</build>
 	<profiles>
 		<profile>
