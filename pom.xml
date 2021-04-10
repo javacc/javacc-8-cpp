@@ -19,11 +19,13 @@
 		<url>scm:git:ssh://git@github.com/javacc/javacc-8-cpp.git</url>
 		<tag>HEAD</tag>
 	</scm>
+	<issueManagement>
+		<system>GitHub</system>
+		<url>https://github.com/javacc/javacc-8-cpp/issues</url>
+	</issueManagement>
 	<properties>
 		<javacc.core>8.0.0</javacc.core>
 		<javacc.cpp>${project.version}</javacc.cpp>
-		<maven.compiler.source>1.8</maven.compiler.source>
-		<maven.compiler.target>1.8</maven.compiler.target>
 	</properties>
 	<dependencyManagement>
 		<dependencies>
