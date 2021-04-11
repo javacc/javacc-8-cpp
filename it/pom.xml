@@ -74,7 +74,7 @@
 								</dependency>
 								<dependency>
 									<groupId>org.javacc.generator.cpp</groupId>
-									<artifactId>javacc-cpp</artifactId>
+									<artifactId>cpp</artifactId>
 									<version>${project.version}</version>
 									<scope>runtime</scope>
 								</dependency>
@@ -158,7 +158,7 @@
 								</dependency>
 								<dependency>
 									<groupId>org.javacc.generator.cpp</groupId>
-									<artifactId>javacc-cpp</artifactId>
+									<artifactId>cpp</artifactId>
 									<version>${javacc.cpp}</version>
 									<scope>runtime</scope>
 								</dependency>
@@ -241,7 +241,7 @@
 								</dependency>
 								<dependency>
 									<groupId>org.javacc.generator.cpp</groupId>
-									<artifactId>javacc-cpp</artifactId>
+									<artifactId>cpp</artifactId>
 									<version>${javacc.cpp}</version>
 									<scope>runtime</scope>
 								</dependency>
