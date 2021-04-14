@@ -24,7 +24,6 @@
 		<url>https://github.com/javacc/javacc-8-cpp/issues</url>
 	</issueManagement>
 	<properties>
-		<javacc.core>8.0.0</javacc.core>
 		<javacc.cpp>${project.version}</javacc.cpp>
 	</properties>
 	<dependencyManagement>
