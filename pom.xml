@@ -84,7 +84,6 @@
 							<postBuildHookScript>verify.bsh</postBuildHookScript>
 							<localRepositoryPath>it/local-repo</localRepositoryPath>
 							<properties>
-								<javacc.core>${javacc.core}</javacc.core>
 								<javacc.cpp>${javacc.cpp}</javacc.cpp>
 								<exec-maven-plugin>1.6.0</exec-maven-plugin>
 								<javacc-maven-plugin>${javacc-maven-plugin}</javacc-maven-plugin>
