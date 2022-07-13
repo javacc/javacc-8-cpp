@@ -11,6 +11,8 @@
 	<artifactId>it</artifactId>
 	<packaging>pom</packaging>
 	<version>1.0.0</version>
+	<name>JavaCC default C++ code generator: it</name>
+	<description>JavaCC default C++ code generator: it</description>
 	<profiles>
 		<profile>
 			<id>Windows</id>
@@ -587,6 +589,4 @@
 			</build>
 		</profile>
 	</profiles>
-	<name>JavaCC default C++ code generator: it</name>
-	<description>JavaCC default C++ code generator: it</description>
 </project>
