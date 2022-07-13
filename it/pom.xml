@@ -10,7 +10,7 @@
 	<groupId>org.javacc.generator.cpp</groupId>
 	<artifactId>it</artifactId>
 	<packaging>pom</packaging>
-	<version>1.0.0</version>
+	<version>1.0.1</version>
 	<name>JavaCC default C++ code generator: it</name>
 	<description>JavaCC default C++ code generator: it</description>
 	<profiles>
