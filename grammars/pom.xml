@@ -32,25 +32,32 @@ THE POSSIBILITY OF SUCH DAMAGE.
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
+
   <parent>
     <groupId>org.javacc.generator.cpp</groupId>
-    <version>1.0.0</version>
+    <version>1.1.0-SNAPSHOT</version>
     <relativePath>../it/</relativePath>
     <artifactId>it</artifactId>
   </parent>
-  <name>JavaCC grammars C++</name>
-  <groupId>org.javacc.generator.cpp</groupId>
+
   <artifactId>grammars</artifactId>
   <packaging>pom</packaging>
+
+  <name>JavaCC C++ code generator / grammars</name>
+
   <modules>
     <module>asn1</module>
     <module>c</module>
     <module>chemical</module>
+    <!-- C++ compiling of CobolParser.h raises:
+         "fatal error C1061: compiler limit : blocks nested too deeply" (>128 nesting levels)
+         fixing this would mean to rewrite the grammar... or the generator -->
+    <!--    <module>cobol</module>-->
+    <module>dtd</module>
     <module>ecma</module>
-    <module>java_1.5</module>
     <module>java_1.1</module>
     <module>java_1.1_widechar</module>
-    <module>cobol</module>
-    <module>dtd</module>
+    <module>java_1.5</module>
   </modules>
+
 </project>

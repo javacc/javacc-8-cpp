@@ -32,17 +32,22 @@ THE POSSIBILITY OF SUCH DAMAGE.
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
+
   <parent>
     <groupId>org.javacc.generator.cpp.examples</groupId>
     <artifactId>interpreter</artifactId>
-    <version>1.0.0</version>
+    <version>1.1.0-SNAPSHOT</version>
   </parent>
+
   <groupId>org.javacc.generator.cpp.examples.interpreter</groupId>
   <artifactId>VST</artifactId>
   <packaging>nar</packaging>
-  <name>JavaCC examples C++ Interpreter VST</name>
+
+  <name>JavaCC C++ code generator / Interpreter / VST</name>
+
   <build>
     <plugins>
+
       <plugin>
         <groupId>com.github.maven-nar</groupId>
         <artifactId>nar-maven-plugin</artifactId>
@@ -59,17 +64,18 @@ THE POSSIBILITY OF SUCH DAMAGE.
                 <arg>${project.basedir}/spl/calc/calc.err</arg>
               </args>
               <!-- 
-							<args>
-								<arg>${project.basedir}/spl/odd/odd.spl</arg>
-								<arg>${project.basedir}/spl/odd/odd.in</arg>
-								<arg>${project.basedir}/spl/odd/odd.out</arg>
-								<arg>${project.basedir}/spl/odd/odd.err</arg>
-							</args>
+              <args>
+                <arg>${project.basedir}/spl/odd/odd.spl</arg>
+                <arg>${project.basedir}/spl/odd/odd.in</arg>
+                <arg>${project.basedir}/spl/odd/odd.out</arg>
+                <arg>${project.basedir}/spl/odd/odd.err</arg>
+              </args>
  -->
             </library>
           </libraries>
         </configuration>
       </plugin>
+
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-antrun-plugin</artifactId>
@@ -100,6 +106,7 @@ THE POSSIBILITY OF SUCH DAMAGE.
           </execution>
         </executions>
       </plugin>
+
     </plugins>
   </build>
 </project>
