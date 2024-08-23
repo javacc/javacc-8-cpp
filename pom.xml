@@ -105,7 +105,7 @@ THE POSSIBILITY OF SUCH DAMAGE.
               <streamLogs>true</streamLogs>
               <debug>false</debug>
               <!--              <postBuildHookScript>verify.bsh</postBuildHookScript>-->
-              <localRepositoryPath>it/local-repo</localRepositoryPath>
+              <localRepositoryPath>${project.basedir}/it/local-repo</localRepositoryPath>
             </configuration>
 
             <executions>

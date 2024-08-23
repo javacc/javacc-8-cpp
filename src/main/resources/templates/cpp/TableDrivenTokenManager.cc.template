@@ -278,7 +278,7 @@ int ${parserName}TokenManager::jjMoveNfa(int startState, int curPos) {
     ++curPos;
   } while (cnt > 0);
 
-  throw "Interal error. Please submit a bug at:https://github.com/javacc/javacc/issues";
+  throw "Internal error. Please submit a bug at:https://github.com/javacc/javacc/issues";
 //  return curPos;
 }
 

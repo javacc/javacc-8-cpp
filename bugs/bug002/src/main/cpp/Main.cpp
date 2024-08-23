@@ -10,10 +10,10 @@
 #if !defined(JJ8) && !defined(JJ7)
 #define JJ8
 #endif
-#if		defined(JJ8)
+#if defined(JJ8)
 #include "DefaultCharStream.h"
 #define CHARSTREAM DefaultCharStream
-#elif 	defined(JJ7)
+#elif defined(JJ7)
 #include "CharStream.h"
 #define CHARSTREAM CharStream
 #endif
@@ -21,78 +21,88 @@
 
 using namespace std;
 
-JJString ReadFileFully() {
-	JJString code;
-	code = 
-"{ c }\n"
-;
+#define MYPARSER Bug
+#define MYTM BugTokenManager
+#define MYENTRY EnumerationItem
 
-	return code;
-}
-static void usage(int argc, char**argv) {
-	cerr << "Parser" << " [ in [ out [ err ] ] ]" << endl;
-}
-int main(int argc, char**argv) {
-	istream*	input  = &cin;
-	ostream*	output = &cout;
-	ostream*	error  = &cerr;
-	ifstream	ifs;
-	ofstream	ofs;
-	ofstream	efs;
-	StreamReader*	sr = nullptr;
-	CharStream *	cs = nullptr;
+int main(int argc, char **argv) {
 
-	try {
-		if (argc > 1) {
-			switch(argc) {
-				case 4: efs.open(argv[3]);
-				case 3: ofs.open(argv[2]);
-				case 2: ifs.open(argv[1], ifstream::binary);
-			}
-			if (ifs.is_open()) {
-				input = &ifs;
-				sr = new StreamReader(ifs);
-				cs = new CHARSTREAM(sr);
-			}
-			else {
-				cerr << "cannot open in file" << endl;
-				return 8;
-			}
-			if (ofs.is_open()) {
-				output = &ofs;
-			}
-			if (efs.is_open()) {
-				error = &efs;
-			}
-		} else
-		if (argc == 1) {
-			JJString s = ReadFileFully();
-			*output << s << endl;
-			cs = new CHARSTREAM(s.c_str(), s.size() - 1, 1, 1);
-		}
-		else {
-			usage(argc, argv);
-			return 0;
-		}
-		TokenManager *scanner = new BugTokenManager(cs);
-#if		defined(JJ8)
-		scanner->disable_tracing();
-#endif
-		Bug parser(scanner);
+  if (argc != 4) {
+    cerr << "Error: invalid number of arguments (" << (argc - 1) << ")" << endl;
+    cerr << "Usage: MYPARSER [ inputfile [ outputfile [ errorfile ] ] ]" << endl;
+    return 4;
+  }
 
-		parser.EnumerationItem();
-     	*output << "Parser :  file parsed successfully." << endl;
-	} catch (const ParseException& e) {
-		clog << e.expectedTokenSequences << endl;
-	}
-	catch (...) {
+  // see https://stackoverflow.com/questions/10150468/how-to-redirect-cin-and-cout-to-files
+  ifstream ifs;
+  ofstream ofs;
+  ofstream efs;
+  streambuf *cinbuf;
+  streambuf *coutbuf;
+  streambuf *cerrbuf;
 
-	}
-	if (ifs.is_open()) ifs.close();
-	if (ofs.is_open()) ofs.close();
-	if (efs.is_open()) efs.close();
-	if (cs) delete cs;
-	if (sr) delete sr;
+  StreamReader *sr = nullptr;
+  CharStream *cs = nullptr;
 
-	return 0;
+  try {
+    // open files and redirect standard streams to them
+    switch (argc) {
+    case 4:
+      efs.open(argv[3]);
+    case 3:
+      ofs.open(argv[2]);
+    case 2:
+      ifs.open(argv[1], ifstream::binary);
+    }
+    if (ifs.is_open()) {
+      sr = new StreamReader(ifs);
+      cs = new CHARSTREAM(sr);
+      cinbuf = cin.rdbuf();
+      cin.rdbuf(ifs.rdbuf());
+    } else {
+      cerr << "Cannot open input file" << endl;
+      return 8;
+    }
+    if (ofs.is_open()) {
+      coutbuf = cout.rdbuf();
+      cout.rdbuf(ofs.rdbuf());
+    } else {
+      cerr << "Cannot open output file" << endl;
+      return 8;
+    }
+    if (efs.is_open()) {
+      cerrbuf = cerr.rdbuf();
+      cerr.rdbuf(efs.rdbuf());
+    }
+
+    // parse
+    MYPARSER parser(new MYTM(cs));
+//    MYTM *scanner = new MYTM(cs);
+//    scanner->disable_tracing();
+//    MYPARSER parser(scanner);
+    parser.MYENTRY();
+    cerr << "Input file parsed successfully" << endl;
+  } catch (const ParseException &e) {
+    cerr << "Error parsing input file:" << endl;
+    clog << e.expectedTokenSequences << endl;
+  } catch (...) {
+  }
+
+// restore standard streams
+  cin.rdbuf(cinbuf);
+  cout.rdbuf(coutbuf);
+  cerr.rdbuf(cerrbuf);
+// close files & others
+  if (ifs.is_open())
+    ifs.close();
+  if (ofs.is_open())
+    ofs.close();
+  if (efs.is_open())
+    efs.close();
+  if (cs)
+    delete cs;
+  if (sr)
+    delete sr;
+
+  return 0;
 }
