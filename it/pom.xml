@@ -663,6 +663,7 @@ THE POSSIBILITY OF SUCH DAMAGE.
             <groupId>com.github.maven-nar</groupId>
             <artifactId>nar-maven-plugin</artifactId>
             <configuration>
+              <debug>true</debug>
               <commandLogLevel>3</commandLogLevel>
               <windowsMsvcVersion>${env.VISUALSTUDIOVERSION}</windowsMsvcVersion>
               <!--              <windowsMsvcVersion>17.10</windowsMsvcVersion>-->

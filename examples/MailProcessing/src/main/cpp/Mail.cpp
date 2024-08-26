@@ -1,7 +1,6 @@
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
 }
 
-#if 0
 import java.io.*;
 
 public class Digest {
@@ -10,7 +9,7 @@ public class Digest {
 
   static String buffer = "";
 
-  public static void main(String args[]) throws ParseException, FileNotFoundException  {
+public static void main(String args[]) throws ParseException, FileNotFoundException {
     Digest parser = new Digest(new FileInputStream(args[0]));
     System.out.println("DIGEST OF RECENT MESSAGES FROM THE JAVACC MAILING LIST");
     System.out.println("----------------------------------------------------------------------");
@@ -31,4 +30,3 @@ public class Digest {
   }
 
 }
-#endif

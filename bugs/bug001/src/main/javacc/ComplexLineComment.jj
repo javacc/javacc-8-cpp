@@ -1,23 +1,10 @@
 options {
   DEBUG_TOKEN_MANAGER=true;
-  TOKEN_MANAGER_INCLUDE="MyTM.h"; 
 }
 
 PARSER_BEGIN(ComplexLineComment)
 
 PARSER_END(ComplexLineComment)
-
-TOKEN_MGR_DECLS : {
-  
-  int myfield;
-  
-  void mymethod() {
-    std::cout << "coucou from tm" << std::endl; 
-    return;
-  };
-  
-}
-
 
 SKIP : { " " | "\t" | "\n" | "\r" }
 
