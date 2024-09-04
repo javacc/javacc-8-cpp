@@ -14,7 +14,6 @@ Found a match of kind:9; kind: <Id> using the first: 1 characters.
 Looking to move from state: 1 for: <Id>
 state=1 vectorindex=0 bitpattern=512 jjChars[state][vectorIndex]=287984085547089920
 Done with NFA at pos: 2
-aa
 Returning token: 'aa' 
 <DEFAULT>
   Current character: '	' at 1:8
@@ -356,7 +355,6 @@ Found a match of kind:9; kind: <Id> using the first: 2 characters.
 Looking to move from state: 1 for: <Id>
 state=1 vectorindex=0 bitpattern=4294967296 jjChars[state][vectorIndex]=287984085547089920
 Done with NFA at pos: 3
-ten
 Returning token: 'ten' 
 <DEFAULT>
   Current character: ' ' at 2:4
@@ -389,7 +387,6 @@ Found a match of kind:9; kind: <Id> using the first: 3 characters.
 Looking to move from state: 1 for: <Id>
 state=1 vectorindex=0 bitpattern=4294967296 jjChars[state][vectorIndex]=287984085547089920
 Done with NFA at pos: 4
-Int1
 Returning token: 'Int1' 
 <DEFAULT>
   Current character: ' ' at 2:9
@@ -442,7 +439,6 @@ Found a match of kind:9; kind: <Id> using the first: 8 characters.
 Looking to move from state: 1 for: <Id>
 state=1 vectorindex=0 bitpattern=8192 jjChars[state][vectorIndex]=287984085547089920
 Done with NFA at pos: 9
-other-ten
 Returning token: 'other-ten' 
 <DEFAULT>
   Current character: '' at 2:19
@@ -504,7 +500,6 @@ Found a match of kind:9; kind: <Id> using the first: 8 characters.
 Looking to move from state: 1 for: <Id>
 state=1 vectorindex=0 bitpattern=4294967296 jjChars[state][vectorIndex]=287984085547089920
 Done with NFA at pos: 9
-other-ten
 Returning token: 'other-ten' 
 <DEFAULT>
   Current character: ' ' at 3:10
@@ -537,7 +532,6 @@ Found a match of kind:9; kind: <Id> using the first: 3 characters.
 Looking to move from state: 1 for: <Id>
 state=1 vectorindex=0 bitpattern=8192 jjChars[state][vectorIndex]=287984085547089920
 Done with NFA at pos: 4
-Int2
 Returning token: 'Int2' 
 <DEFAULT>
   Current character: '' at 3:15
@@ -571,3 +565,4 @@ Looking for string literal match of kind:3 token image: '\n'
   Currently matched the first: 1 chars as kind: 3,with image: \n
 Found a SKIP match.
 <DEFAULT> Reached EOF at 4:2
+Input file parsed successfully

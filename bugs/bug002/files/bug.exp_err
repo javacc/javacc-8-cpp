@@ -1,0 +1,52 @@
+<DEFAULT>
+  Current character: '{' at 1:1
+Looking for string literal match of kind:7 token image: '{'
+  Current character: '{'
+  Currently matched the first: 1 chars as kind: 7,with image: {
+No NFA state at pos: 2
+Returning token: '{' 
+<DEFAULT>
+  Current character: ' ' at 1:2
+Looking for string literal match of kind:1 token image: ' '
+  Current character: ' '
+  Currently matched the first: 1 chars as kind: 1,with image:  
+No NFA state at pos: 2
+Found a SKIP match.
+<DEFAULT>
+  Current character: 'c' at 1:3
+No string literal start with char: 'c'
+Starting NFA with start state: 0
+  Current character: 'c'
+Looking to move from state: 3 for: <IDENTIFIANT>
+state=3 vectorindex=1 bitpattern=34359738368 jjChars[state][vectorIndex]=576460743713488896
+Found a match of kind:17; kind: <IDENTIFIANT> using the first: 0 characters.
+Looking to move from state: 1 for: <NUMBER>
+state=1 vectorindex=1 bitpattern=34359738368 jjChars[state][vectorIndex]=0
+Looking to move from state: 0 for: <NUMBER>
+state=0 vectorindex=1 bitpattern=34359738368 jjChars[state][vectorIndex]=0
+  Current character: ' '
+Looking to move from state: 7 for: <VALUEREFERENCE>
+state=7 vectorindex=0 bitpattern=4294967296 jjChars[state][vectorIndex]=287948901175001088
+Looking to move from state: 6 for: <UNKNOWN>
+state=6 vectorindex=0 bitpattern=4294967296 jjChars[state][vectorIndex]=35184372088832
+Looking to move from state: 5 for: <IDENTIFIANT>
+state=5 vectorindex=0 bitpattern=4294967296 jjChars[state][vectorIndex]=287948901175001088
+Looking to move from state: 4 for: <UNKNOWN>
+state=4 vectorindex=0 bitpattern=4294967296 jjChars[state][vectorIndex]=35184372088832
+Done with NFA at pos: 1
+Returning token: 'c' 
+<DEFAULT>
+  Current character: ' ' at 1:4
+Looking for string literal match of kind:1 token image: ' '
+  Current character: ' '
+  Currently matched the first: 1 chars as kind: 1,with image:  
+No NFA state at pos: 2
+Found a SKIP match.
+<DEFAULT>
+  Current character: '}' at 1:5
+Looking for string literal match of kind:8 token image: '}'
+  Current character: '}'
+  Currently matched the first: 1 chars as kind: 8,with image: }
+No NFA state at pos: 2
+Returning token: '}' 
+Input file parsed successfully

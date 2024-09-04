@@ -647,8 +647,9 @@ THE POSSIBILITY OF SUCH DAMAGE.
             for VS 2019+ reads pom properties, but not environment variables;
              so, in that case, to avoid having to modify properties in the poms:
               set 2 new environment variables VisualStudioVersion (like 17.10) and VisualStudioDir 
-              (path up to VC/TOOLS/MSVC/nn.nn.nnnnn/... excluded),
-              (use dir /s %windir%\link.exe and dir /s "%programfiles%\link.exe"),
+              (path up to VC/TOOLS/MSVC/nn.nn.nnnnn/... excluded), 
+              (use dir /s %windir%\link.exe and dir /s "%programfiles%\link.exe" to find them),
+              (unfortunately using the short name form does not seem to avoid warnings D9027 & D9024),
               so this profile will be activated and pick them
            version 3.10.2 tries to read environment variables, but has not been published yet  -->
       <id>nar-visualstudio-env</id>
@@ -663,12 +664,28 @@ THE POSSIBILITY OF SUCH DAMAGE.
             <groupId>com.github.maven-nar</groupId>
             <artifactId>nar-maven-plugin</artifactId>
             <configuration>
-              <debug>true</debug>
-              <commandLogLevel>3</commandLogLevel>
+              <!-- 0=err; 1=warn; 2= info; 3:verbose; 4=debug -->
+              <!-- with 3 use ant debug property to see the command line like -->
+              <!-- [DEBUG] "...\cl" /FS /bigobj  /c /nologo /EHsc /DNDEBUG /MD /GR
+              /Fd...\target\nar\obj\amd64-Windows-msvc\ 
+              /DJJ8 /DWIN32 /DWIN64
+              /I...\target\nar\obj\amd64-Windows-msvc 
+              /I...\target\nar\obj\amd64-Windows-msvc
+              /I...\src\main\cpp 
+              /I...\target\generated-sources\cpp 
+              /I...\VC\Tools\MSVC\14.41.34120\include
+              /I...\Windows Kits\10\Include\10.0.19041.0\shared
+              /I...\Windows Kits\10\Include\10.0.19041.0\ucrt 
+              /I...\Windows Kits\10\Include\10.0.19041.0\um 
+              /I...\Windows Kits\10\Include\10.0.19041.0\winrt 
+              /Fo...\target\nar\obj\amd64-Windows-msvc\ComplexLineCommentTokenManager.1e3a03c3.obj 
+              ../../target/generated-sources/cpp/ComplexLineCommentTokenManager.cc -->
+              <commandLogLevel>2</commandLogLevel>
               <windowsMsvcVersion>${env.VISUALSTUDIOVERSION}</windowsMsvcVersion>
               <!--              <windowsMsvcVersion>17.10</windowsMsvcVersion>-->
               <windowsMsvcDir>${env.VISUALSTUDIODIR}</windowsMsvcDir>
               <!--              <windowsMsvcDir>C:/Progra~1/MIB055~1/2022/PROFES~1/</windowsMsvcDir>-->
+<!--              <maxCores>1</maxCores>-->
             </configuration>
           </plugin>
         </plugins>
@@ -679,6 +696,17 @@ THE POSSIBILITY OF SUCH DAMAGE.
     <!--    <nar.windows.msvc.version>17.10</nar.windows.msvc.dir>-->
     <!--    <nar.windows.msvc.dir>C:/Progra~1/MIB055~1/2022/PROFES~1/</nar.windows.msvc.dir>-->
     <!--  </properties>-->
+
+    <profile>
+      <!-- windows-debug profile needed to enable nar-vcproj (to produce the VisualStudio 2005
+          project file - which will be modified by later versions of VS) -->
+      <!--      <id>windows-debug</id>-->
+      <activation>
+        <property>
+          <name>env.VISUALSTUDIOVERSION</name>
+        </property>
+      </activation>
+    </profile>
 
   </profiles>
 </project>

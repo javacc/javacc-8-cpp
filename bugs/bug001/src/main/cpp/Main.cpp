@@ -1,7 +1,6 @@
 #include <iostream>
 #include <fstream>
 #include <iomanip>
-#include <string>
 
 #include "JavaCC.h"
 #include "ComplexLineCommentTokenManager.h"
@@ -27,9 +26,9 @@ using namespace std;
 
 int main(int argc, char **argv) {
 
-  if (argc != 4) {
+  if (argc > 4) {
     cerr << "Error: invalid number of arguments (" << (argc - 1) << ")" << endl;
-    cerr << "Usage: MYPARSER [ inputfile [ outputfile [ errorfile ] ] ]" << endl;
+    cerr << "Usage: ComplexLineComment [ inputfile [ outputfile [ errorfile ] ] ]" << endl;
     return 4;
   }
 
@@ -47,12 +46,12 @@ int main(int argc, char **argv) {
   try {
     // open files and redirect standard streams to them
     switch (argc) {
-    case 4:
-      efs.open(argv[3]);
-    case 3:
-      ofs.open(argv[2]);
-    case 2:
-      ifs.open(argv[1], ifstream::binary);
+      case 4:
+        efs.open(argv[3]);
+      case 3:
+        ofs.open(argv[2]);
+      case 2:
+        ifs.open(argv[1], ifstream::binary);
     }
     if (ifs.is_open()) {
       sr = new StreamReader(ifs);
@@ -60,19 +59,22 @@ int main(int argc, char **argv) {
       cinbuf = cin.rdbuf();
       cin.rdbuf(ifs.rdbuf());
     } else {
-      cerr << "Cannot open input file" << endl;
+      cerr << "Cannot open input file " << argv[1] << endl;
       return 8;
     }
     if (ofs.is_open()) {
       coutbuf = cout.rdbuf();
       cout.rdbuf(ofs.rdbuf());
     } else {
-      cerr << "Cannot open output file" << endl;
+      cerr << "Cannot open output file " << argv[2] << endl;
       return 8;
     }
     if (efs.is_open()) {
       cerrbuf = cerr.rdbuf();
       cerr.rdbuf(efs.rdbuf());
+    } else {
+      cerr << "Cannot open error file " << argv[3] << endl;
+      return 8;
     }
 
     // parse
