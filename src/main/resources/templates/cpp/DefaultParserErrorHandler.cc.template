@@ -1,5 +1,36 @@
+#if PRINT_LICENSE
+/*
+ * Copyright (c) 2020-2025, Sreeni Viswanadha <sreeni@viswanadha.net>.
+ * Copyright (c) 2024-2025, Marc Mazas <mazas.marc@gmail.com>.
+ * All rights reserved.
+ * 
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ * 
+ *     * Redistributions of source code must retain the above copyright notice,
+ *       this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above copyright
+ *       notice, this list of conditions and the following disclaimer in the
+ *       documentation and/or other materials provided with the distribution.
+ *     * Neither the names of of the copyright holders nor the names of its
+ *       contributors may be used to endorse or promote products derived from
+ *       this software without specific prior written permission.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
+ * THE POSSIBILITY OF SUCH DAMAGE.
+ */
+#fi
+// shouldn't BUILD_PARSER condition be in CppCodeGenerator.java?
 #if BUILD_PARSER
-      
 \#if (JAVACC_CHAR_TYPE_SIZEOF != 1)
 \#include <codecvt>
 \#include <locale>
@@ -14,47 +45,53 @@ namespace ${NAMESPACE_OPEN}
 
 \#if (JAVACC_CHAR_TYPE_SIZEOF != 1)
 using convert_t = std::codecvt_utf8<wchar_t>;
+
 static std::wstring_convert<convert_t, wchar_t> strconverter;
 
-static std::string to_string(const std::wstring& wstr)
-{
-    return strconverter.to_bytes(wstr);
+static std::string to_string(const std::wstring& wstr) {
+  return strconverter.to_bytes(wstr);
 }
 
-static std::wstring to_wstring(const std::string& str)
-{
-    return strconverter.from_bytes(str);
+static std::wstring to_wstring(const std::string& str) {
+  return strconverter.from_bytes(str);
 }
+
 \#endif
-
-void DefaultParserErrorHandler::unexpectedToken(const JJString& expectedImage, const JJString& expectedLabel, const JJString& actualImage, const JJString& actualLabel, const Token* actualToken) {
-	error_count++;
-	JJLOG 
-       << JJWIDE(Expecting) << JJSPACE << addUnicodeEscapes(expectedLabel) << JJWIDE(:) << JJQUOTE << addUnicodeEscapes(expectedImage) << JJQUOTE
-       << JJSPACE << JJWIDE(at) << JJSPACE << actualToken->beginLine() << JJWIDE(:) << actualToken->beginColumn() << JJSPACE 
-       << JJWIDE(but got) << JJSPACE << JJQUOTE << addUnicodeEscapes(actualImage) << JJQUOTE << std::endl;
+void DefaultParserErrorHandler::unexpectedToken(const JJString& expectedImage,
+                                                const JJString& expectedLabel,
+                                                const JJString& actualImage,
+                                                const JJString& actualLabel,
+                                                const Token* actualToken) {
+  error_count++;
+  JJLOG << JJWIDE(Expecting) << JJSPACE << addUnicodeEscapes(expectedLabel)
+        << JJWIDE(:) << JJQUOTE << addUnicodeEscapes(expectedImage) << JJQUOTE
+        << JJSPACE << JJWIDE(at) << JJSPACE << actualToken->beginLine()
+        << JJWIDE(:) << actualToken->beginColumn() << JJSPACE 
+        << JJWIDE(but got) << JJSPACE
+        << JJQUOTE << addUnicodeEscapes(actualImage) << JJQUOTE << std::endl;
 }
-      
-      
-void DefaultParserErrorHandler::parseError(const Token* last, const Token* unexpected, const JJSimpleString& production) {
-    error_count++;
+
+void DefaultParserErrorHandler::parseError(const Token* last,
+                                           const Token* unexpected,
+                                           const JJSimpleString& production) {
+  error_count++;
 \#if (JAVACC_CHAR_TYPE_SIZEOF == 1)
-    const JJString& work = production;
+  const JJString& work = production;
 \#else
-    const JJString& work = to_wstring(production);
+  const JJString& work = to_wstring(production);
 \#endif
-    JJLOG 
-        << JJWIDE(Encountered:) << JJSPACE << JJQUOTE << addUnicodeEscapes(unexpected->image()) << JJQUOTE << JJSPACE 
-        << JJWIDE(at) << JJSPACE << unexpected->beginLine() << JJWIDE(:) << unexpected->beginColumn()  << JJSPACE 
+  JJLOG << JJWIDE(Encountered:) << JJSPACE
+        << JJQUOTE << addUnicodeEscapes(unexpected->image()) << JJQUOTE << JJSPACE 
+        << JJWIDE(at) << JJSPACE << unexpected->beginLine()
+        << JJWIDE(:) << unexpected->beginColumn() << JJSPACE 
         << JJWIDE(while parsing:) << JJSPACE << work << std::endl;
 }
-      
+
 void DefaultParserErrorHandler::otherError(const JJString& message) {
-    JJLOG << JJWIDE(Error:) << JJSPACE  << message << std::endl;
+  JJLOG << JJWIDE(Error:) << JJSPACE  << message << std::endl;
 }
 
-
 #if NAMESPACE
-${NAMESPACE_CLOSE}
+${NAMESPACE_CLOSE} // end namespace
 #fi
 #fi

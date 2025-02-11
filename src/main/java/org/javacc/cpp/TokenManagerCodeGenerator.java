@@ -1,3 +1,32 @@
+/*
+ * Copyright (c) 2020-2025, Sreeni Viswanadha <sreeni@viswanadha.net>.
+ * Copyright (c) 2024-2025, Marc Mazas <mazas.marc@gmail.com>.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ *     * Redistributions of source code must retain the above copyright notice,
+ *       this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above copyright
+ *       notice, this list of conditions and the following disclaimer in the
+ *       documentation and/or other materials provided with the distribution.
+ *     * Neither the names of of the copyright holders nor the names of its
+ *       contributors may be used to endorse or promote products derived from
+ *       this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
+ * THE POSSIBILITY OF SUCH DAMAGE.
+ */
 package org.javacc.cpp;
 
 import java.io.File;
@@ -6,7 +35,6 @@ import java.util.BitSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
 import org.javacc.parser.CodeGeneratorSettings;
 import org.javacc.parser.Context;
 import org.javacc.parser.Options;
@@ -15,13 +43,13 @@ import org.javacc.parser.TokenizerData;
 /** Class that implements a table driven code generator for the token manager in C++. */
 class TokenManagerCodeGenerator implements org.javacc.parser.TokenManagerCodeGenerator {
 
-  private static final String TokenManagerTemplate =
-      "/templates/cpp/TableDrivenTokenManager.cc.template";
-  private static final String TokenManagerTemplateH =
-      "/templates/cpp/TableDrivenTokenManager.h.template";
+  private static final String tokenManagerTemplateCC =
+      "/templates/cpp/TokenManagerDriver.cc.template";
+  private static final String tokenManagerTemplateH =
+      "/templates/cpp/TokenManagerDriver.h.template";
 
   private final Context context;
-  private CppCodeBuilder codeGenerator;
+  private CppCodeBuilder ccb;
 
   TokenManagerCodeGenerator(final Context context) {
     this.context = context;
@@ -30,9 +58,11 @@ class TokenManagerCodeGenerator implements org.javacc.parser.TokenManagerCodeGen
   @Override
   public void generateCode(
       final CodeGeneratorSettings settings, final TokenizerData tokenizerData) {
+
     settings.putAll(Options.getOptions());
+
     settings.put(
-        Options.NONUSER_OPTION__PARSER_NAME_UPPER_CASE, tokenizerData.parserName.toUpperCase());
+        Options.NUO__PARSER_NAME_UPPER_CASE, tokenizerData.parserName.toUpperCase());
 
     settings.put("maxOrdinal", tokenizerData.allMatches.size());
     settings.put("firstLexState", tokenizerData.lexStateNames[0]);
@@ -47,8 +77,10 @@ class TokenManagerCodeGenerator implements org.javacc.parser.TokenManagerCodeGen
     settings.put("charStreamName", Options.getCharStreamName());
     settings.put("defaultLexState", tokenizerData.defaultLexState);
     settings.put("decls", tokenizerData.decls);
-    settings.put("noDfa", Options.getNoDfa());
     settings.put("generatedStates", tokenizerData.nfa.size());
+
+    settings.put("noDfa", Options.getNoDfa());
+
     if (Options.getTokenClass().isEmpty()) {
       settings.put("tokenClass", "Token");
     } else {
@@ -60,35 +92,56 @@ class TokenManagerCodeGenerator implements org.javacc.parser.TokenManagerCodeGen
       settings.put("tokenInclude", Options.getTokenInclude());
     }
 
-    final File file =
-        new File(Options.getOutputDirectory(), tokenizerData.parserName + "TokenManager.cc");
     try {
-      codeGenerator = CppCodeBuilder.of(context, settings).setFile(file);
+      final File file =
+          new File(Options.getOutputDirectory(), tokenizerData.parserName + "TokenManager.cc");
+      ccb = CppCodeBuilder.of(context, settings).setFile(file);
 
       if (Options.hasNamespace()) {
-        codeGenerator.println("namespace " + Options.stringValue("NAMESPACE_OPEN"));
+        ccb.println(
+            "namespace " + Options.stringValue("NAMESPACE_OPEN") + " // user defined option");
+        ccb.println();
       }
 
-      codeGenerator.printTemplate(TokenManagerTemplate);
+      ccb.println("/* Beginning of code from " + tokenManagerTemplateCC + " */");
+      ccb.println();
+      ccb.printTemplate(tokenManagerTemplateCC);
+      ccb.println();
+      ccb.println("/* End of code from " + tokenManagerTemplateCC + " */");
+      ccb.println();
 
-      codeGenerator.switchToIncludeFile(); // remaining variables
+      ccb.switchToIncludeFile(); // remaining variables
+      ccb.println("/* Beginning of code from " + tokenManagerTemplateH + " */");
+      ccb.println();
+      ccb.printTemplate(tokenManagerTemplateH, settings);
+      ccb.println();
+      ccb.println("/* End of code from " + tokenManagerTemplateH + " */");
+      ccb.println();
 
-      codeGenerator.printTemplate(TokenManagerTemplateH, settings);
-      codeGenerator.switchToStaticsFile();
-      codeGenerator.println("#include \"TokenManagerError.h\"");
-      codeGenerator.println("#include \"DefaultTokenManagerErrorHandler.h\"");
+      ccb.switchToStaticsFile();
+      ccb.println("#include \"TokenManagerError.h\"");
+      ccb.println("#include \"DefaultTokenManagerErrorHandler.h\"");
 
       final String tmi = Options.getTokenManagerInclude();
-      if (tmi != null && tmi.length() != 0) {
-        codeGenerator.println("#include \"" + tmi + "\"");
+      if (!tmi.isEmpty()) {
+        if (tmi.charAt(0) == '<') {
+          ccb.println("#include " + tmi + " // user defined option");
+        } else {
+          ccb.println("#include \"" + tmi + "\" // user defined option");
+        }
       }
 
       if (!Options.getNoDfa()) {
-        dumpDfaTables(codeGenerator, tokenizerData);
+        ccb.println();
+        ccb.println("/* no user defined NO_DFA option */");
+        dumpDfaTables(ccb, tokenizerData);
       }
-      dumpNfaTables(codeGenerator, tokenizerData);
-      dumpMatchInfo(codeGenerator, tokenizerData);
+
+      dumpNfaTables(ccb, tokenizerData);
+      dumpMatchInfo(ccb, tokenizerData);
+
     } catch (final IOException ioe) {
+      ioe.printStackTrace();
       assert (false);
     }
   }
@@ -99,25 +152,24 @@ class TokenManagerCodeGenerator implements org.javacc.parser.TokenManagerCodeGen
       return;
     }
 
-    if (Options.stringValue(Options.USEROPTION__CPP_NAMESPACE).length() > 0) {
-      codeGenerator.switchToMainFile();
-      codeGenerator.println(Options.stringValue("NAMESPACE_CLOSE"));
+    if (Options.stringValue(Options.UO__NAMESPACE).length() > 0) {
+      ccb.switchToMainFile();
+      ccb.println(Options.stringValue("NAMESPACE_CLOSE"));
     }
 
     try {
-      codeGenerator.close();
-    } catch (final IOException e) {
-      throw new Error(e);
+      ccb.close();
+    } catch (final IOException ioe) {
+      ioe.printStackTrace();
+      throw new Error(ioe);
     }
   }
 
-  private void dumpDfaTables(
-      final CppCodeBuilder codeGenerator, final TokenizerData tokenizerData) {
+  private static void dumpDfaTables(final CppCodeBuilder ccb, final TokenizerData tokenizerData) {
     final Map<Integer, int[]> startAndSize = new HashMap<>();
     int i = 0;
 
-    codeGenerator.println();
-    codeGenerator.println("static const long long stringLiterals[] = {");
+    ccb.println("static const long long stringLiterals[] = {");
     for (final int key : tokenizerData.literalSequence.keySet()) {
       final int[] arr = new int[2];
       final List<String> l = tokenizerData.literalSequence.get(key);
@@ -126,60 +178,62 @@ class TokenManagerCodeGenerator implements org.javacc.parser.TokenManagerCodeGen
       arr[1] = l.size();
       int j = 0;
       if (i > 0) {
-        codeGenerator.println(", ");
+        ccb.println(",");
       }
       for (final String s : l) {
         if (j > 0) {
-          codeGenerator.println(", ");
+          ccb.println(", ");
         }
         final int kind = kinds.get(j);
         final boolean ignoreCase = tokenizerData.ignoreCaseKinds.contains(kind);
-        codeGenerator.print(s.length() + "LL");
-        codeGenerator.print(", ");
-        codeGenerator.print(ignoreCase ? 1 : 0);
+        ccb.print("  ");
+        ccb.print(s.length() + "LL");
+        ccb.print(", ");
+        ccb.print(ignoreCase ? 1 : 0);
         for (int k = 0; k < s.length(); k++) {
-          codeGenerator.print(", ");
-          codeGenerator.print((int) s.charAt(k) + "LL");
+          ccb.print(", ");
+          ccb.print((int) s.charAt(k) + "LL");
           i++;
         }
         if (ignoreCase) {
           for (int k = 0; k < s.length(); k++) {
-            codeGenerator.print(", ");
-            codeGenerator.print((int) s.toUpperCase().charAt(k) + "LL");
+            ccb.print(", ");
+            ccb.print((int) s.toUpperCase().charAt(k) + "LL");
             i++;
           }
         }
-        codeGenerator.print(", " + kind + "LL");
-        codeGenerator.print(", " + tokenizerData.kindToNfaStartState.get(kind) + "LL");
+        ccb.print(", " + kind + "LL");
+        ccb.print(", " + tokenizerData.kindToNfaStartState.get(kind) + "LL");
         i += 4;
         j++;
       }
       startAndSize.put(key, arr);
     }
-    codeGenerator.println("};");
-    codeGenerator.println();
+    ccb.println();
+    ccb.println("};");
+    ccb.println();
 
-    codeGenerator.switchToMainFile();
+    ccb.switchToMainFile();
     // Token actions.
-    codeGenerator.println(
+    ccb.println(
         "int "
             + tokenizerData.parserName
             + "TokenManager::getStartAndSize(int index, int isCount)\n{");
-    codeGenerator.println("  switch(index) {");
+    ccb.println("  switch(index) {");
     for (final int key : tokenizerData.literalSequence.keySet()) {
       final int[] arr = startAndSize.get(key);
-      codeGenerator.println(
+      ccb.println(
           "    case " + key + ": { return (isCount == 0) ? " + arr[0] + " : " + arr[1] + ";}");
     }
-    codeGenerator.println("  }");
-    codeGenerator.println("  return -1;");
-    codeGenerator.println("}\n");
+    ccb.println("  }");
+    ccb.println("  return -1;");
+    ccb.println("}");
+    ccb.println();
 
-    codeGenerator.switchToStaticsFile();
+    ccb.switchToStaticsFile();
   }
 
-  private void dumpNfaTables(
-      final CppCodeBuilder codeGenerator, final TokenizerData tokenizerData) {
+  private static void dumpNfaTables(final CppCodeBuilder ccb, final TokenizerData tokenizerData) {
     // WE do the following for java so that the generated code is reasonable
     // size and can be compiled. May not be needed for other languages.
     final Map<Integer, TokenizerData.NfaState> nfa = tokenizerData.nfa;
@@ -209,46 +263,47 @@ class TokenManagerCodeGenerator implements org.javacc.parser.TokenManagerCodeGen
     }
 
     if (Options.getCppUseArray()) {
-      codeGenerator.print("static const Array<");
-      codeGenerator.print(length + 1);
-      codeGenerator.println(", long long> jjCharData[] = {");
+      ccb.print("static const Array<");
+      ccb.print(length + 1);
+      ccb.println(", long long> jjCharData[] = {");
     } else {
-      codeGenerator.println("static const long long jjCharData[][" + length + 1 + "] = {");
+      ccb.println("static const long long jjCharData[][" + length + 1 + "] = {");
     }
 
     for (int i = 0; i < nfa.size(); i++) {
       final TokenizerData.NfaState tmp = nfa.get(i);
       if (i > 0) {
-        codeGenerator.println(",");
+        ccb.println(",");
       }
       if (tmp == null) {
-        codeGenerator.print("{}");
+        ccb.print("  {}");
         continue;
       }
-      codeGenerator.print("{");
+      ccb.print("  {");
       final BitSet bits = new BitSet();
       for (final char c : tmp.characters) {
         bits.set(c);
       }
       final long[] longs = bits.toLongArray();
-      codeGenerator.print(lengths[i] + "LL");
+      ccb.print(lengths[i] + "LL");
       for (int k = 0; k < longs.length; k++) {
         int rep = 1;
         while (((k + rep) < longs.length) && (longs[k + rep] == longs[k])) {
           rep++;
         }
-        codeGenerator.print(", ", rep + "LL, ");
+        ccb.print(", ", rep + "LL, ");
         if (longs[k] == Long.MIN_VALUE) {
-          codeGenerator.print("LLONG_MIN");
+          ccb.print("LLONG_MIN");
         } else {
-          codeGenerator.print("" + Long.toString(longs[k]) + "LL");
+          ccb.print("" + Long.toString(longs[k]) + "LL");
         }
         k += rep - 1;
       }
-      codeGenerator.print("}");
+      ccb.print("}");
     }
-    codeGenerator.println("};");
-    codeGenerator.println();
+    ccb.println();
+    ccb.println("};");
+    ccb.println();
 
     length = 0;
     for (int i = 0; i < nfa.size(); i++) {
@@ -259,49 +314,51 @@ class TokenManagerCodeGenerator implements org.javacc.parser.TokenManagerCodeGen
       length = Math.max(length, tmp.compositeStates.size());
     }
     if (Options.getCppUseArray()) {
-      codeGenerator.print("static const Array<");
-      codeGenerator.print(length);
-      codeGenerator.println(", int> jjcompositeState[] = {");
+      ccb.print("static const Array<");
+      ccb.print(length);
+      ccb.println(", int> jjcompositeState[] = {");
     } else {
-      codeGenerator.println("static const int jjcompositeState[][" + length + "] = {");
+      ccb.println("static const int jjcompositeState[][" + length + "] = {");
     }
     for (int i = 0; i < nfa.size(); i++) {
       final TokenizerData.NfaState tmp = nfa.get(i);
       if (i > 0) {
-        codeGenerator.println(", ");
+        ccb.println(", ");
       }
       if (tmp == null) {
-        codeGenerator.print("{}");
+        ccb.print("  {}");
         continue;
       }
-      codeGenerator.print("{");
+      ccb.print("  {");
       int k = 0;
       for (final int st : tmp.compositeStates) {
         if (k++ > 0) {
-          codeGenerator.print(", ");
+          ccb.print(", ");
         }
-        codeGenerator.print(st);
+        ccb.print(st);
       }
-      codeGenerator.print("}");
+      ccb.print("}");
     }
-    codeGenerator.println("};");
-    codeGenerator.println();
+    ccb.println();
+    ccb.println("};");
+    ccb.println();
 
-    codeGenerator.println("static const int jjmatchKinds[] = {");
+    ccb.println("static const int jjmatchKinds[] = {");
     for (int i = 0; i < nfa.size(); i++) {
       final TokenizerData.NfaState tmp = nfa.get(i);
       if (i > 0) {
-        codeGenerator.println(", ");
+        ccb.println(", ");
       }
       // TODO(sreeni) : Fix this mess.
       if (tmp == null) {
-        codeGenerator.print("ALLBITSUP");
+        ccb.print("  ALLBITSUP");
         continue;
       }
-      codeGenerator.print(tmp.kind);
+      ccb.print("  " + tmp.kind);
     }
-    codeGenerator.println("};");
-    codeGenerator.println();
+    ccb.println();
+    ccb.println("};");
+    ccb.println();
 
     length = 0;
     for (int i = 0; i < nfa.size(); i++) {
@@ -312,77 +369,81 @@ class TokenManagerCodeGenerator implements org.javacc.parser.TokenManagerCodeGen
       length = Math.max(length, tmp.nextStates.size());
     }
     if (Options.getCppUseArray()) {
-      codeGenerator.print("static const Array<");
-      codeGenerator.print(length + 1);
-      codeGenerator.println(", int> jjnextStateSet[] = {");
+      ccb.print("static const Array<");
+      ccb.print(length + 1);
+      ccb.println(", int> jjnextStateSet[] = {");
     } else {
-      codeGenerator.println("static const int jjnextStateSet[][" + (length + 1) + "] = {");
+      ccb.println("static const int jjnextStateSet[][" + (length + 1) + "] = {");
     }
     for (int i = 0; i < nfa.size(); i++) {
       final TokenizerData.NfaState tmp = nfa.get(i);
       if (i > 0) {
-        codeGenerator.println(", ");
+        ccb.println(", ");
       }
       if (tmp == null) {
-        codeGenerator.print("{0}");
+        ccb.print("  {0}");
         continue;
       }
-      codeGenerator.print("{");
-      codeGenerator.print(tmp.nextStates.size());
+      ccb.print("  {");
+      ccb.print(tmp.nextStates.size());
       for (final int s : tmp.nextStates) {
-        codeGenerator.print(", ");
-        codeGenerator.print(s);
+        ccb.print(", ");
+        ccb.print(s);
       }
-      codeGenerator.print("}");
+      ccb.print("}");
     }
-    codeGenerator.println("};");
-    codeGenerator.println();
+    ccb.println();
+    ccb.println("};");
+    ccb.println();
 
-    codeGenerator.println("static const int jjInitStates[]  = {");
+    ccb.println("static const int jjInitStates[]  = {");
     int k = 0;
     for (final int i : tokenizerData.initialStates.keySet()) {
       if (k++ > 0) {
-        codeGenerator.print(", ");
+        ccb.print(", ");
+      } else {
+        ccb.print("  ");
       }
-      codeGenerator.print(tokenizerData.initialStates.get(i));
+      ccb.print(tokenizerData.initialStates.get(i));
     }
-    codeGenerator.println("};");
-    codeGenerator.println();
+    ccb.println("};");
+    ccb.println();
 
-    codeGenerator.println("static const int canMatchAnyChar[] = {");
+    ccb.println("static const int canMatchAnyChar[] = {");
     k = 0;
     for (int i = 0; i < tokenizerData.wildcardKind.size(); i++) {
       if (k++ > 0) {
-        codeGenerator.print(", ");
+        ccb.print(", ");
+      } else {
+        ccb.print("  ");
       }
-      codeGenerator.print(tokenizerData.wildcardKind.get(i));
+      ccb.print(tokenizerData.wildcardKind.get(i));
     }
-    codeGenerator.println("};");
-    codeGenerator.println();
+    ccb.println("};");
+    ccb.println();
   }
 
-  private void printWide(final String image) {
+  private static void printWide(final CppCodeBuilder ccb, final String image) {
     if (image != null) {
-      codeGenerator.print("JJWIDE(");
+      ccb.print("JJWIDE(");
       for (int j = 0; j < image.length(); j++) {
         if (image.charAt(j) <= 0xff) {
-          codeGenerator.print("\\" + Integer.toOctalString(image.charAt(j)));
+          ccb.print("\\" + Integer.toOctalString(image.charAt(j)));
         } else {
           String hexVal = Integer.toHexString(image.charAt(j));
           if (hexVal.length() == 3) {
             hexVal = "0" + hexVal;
           }
-          codeGenerator.print("\\u" + hexVal);
+          ccb.print("\\u" + hexVal);
         }
       }
-      codeGenerator.print(")");
+      ccb.print(")");
     } else {
-      codeGenerator.print("JJEMPTY");
+      ccb.print("JJEMPTY");
     }
   }
 
-  private void dumpMatchInfo(
-      final CppCodeBuilder codeGenerator, final TokenizerData tokenizerData) {
+  private static void dumpMatchInfo(final CppCodeBuilder ccb, final TokenizerData tokenizerData) {
     final Map<Integer, TokenizerData.MatchInfo> allMatches = tokenizerData.allMatches;
 
     // A bit ugly.
@@ -397,7 +458,7 @@ class TokenManagerCodeGenerator implements org.javacc.parser.TokenManagerCodeGen
     toMore.set(allMatches.size() + 1, true);
     toSpecial.set(allMatches.size() + 1, true);
     // Kind map.
-    codeGenerator.println("static const JJString jjstrLiteralImages[] = {");
+    ccb.println("static const JJString jjstrLiteralImages[] = {");
     int k = 0;
     for (final int i : allMatches.keySet()) {
       final TokenizerData.MatchInfo matchInfo = allMatches.get(i);
@@ -418,68 +479,76 @@ class TokenManagerCodeGenerator implements org.javacc.parser.TokenManagerCodeGen
       newStates[i] = matchInfo.newLexState;
       final String image = matchInfo.image;
       if (k++ > 0) {
-        codeGenerator.println(", ");
+        ccb.println(",");
       }
-      printWide(image);
+      ccb.print("  ");
+      printWide(ccb, image);
     }
-    codeGenerator.println();
-    codeGenerator.println("};");
-    codeGenerator.println();
+    ccb.println();
+    ccb.println("};");
+    ccb.println();
 
     // Now generate the bit masks.
-    TokenManagerCodeGenerator.generateBitVector("jjtoSkip", toSkip, codeGenerator);
-    TokenManagerCodeGenerator.generateBitVector("jjtoSpecial", toSpecial, codeGenerator);
-    TokenManagerCodeGenerator.generateBitVector("jjtoMore", toMore, codeGenerator);
-    TokenManagerCodeGenerator.generateBitVector("jjtoToken", toToken, codeGenerator);
+    generateBitVector(ccb, "jjtoSkip", toSkip);
+    ccb.println();
+    generateBitVector(ccb, "jjtoSpecial", toSpecial);
+    ccb.println();
+    generateBitVector(ccb, "jjtoMore", toMore);
+    ccb.println();
+    generateBitVector(ccb, "jjtoToken", toToken);
+    ccb.println();
 
-    codeGenerator.println("static const int jjnewLexState[] = {");
+    ccb.println("static const int jjnewLexState[] = {");
     for (int i = 0; i < newStates.length; i++) {
       if (i > 0) {
-        codeGenerator.print(", ");
+        ccb.print(", ");
+      } else {
+        ccb.print("  ");
       }
       // codeGenerator.genCode("0x" + Integer.toHexString(newStates[i]));
-      codeGenerator.print("" + Integer.toString(newStates[i]));
+      ccb.print(Integer.toString(newStates[i]));
     }
-    codeGenerator.println("};");
-    codeGenerator.println();
+    ccb.println();
+    ccb.println("};");
+    ccb.println();
 
     // Action functions.
 
     // Token actions.
-    codeGenerator.switchToMainFile();
-    codeGenerator.println(
+    ccb.switchToMainFile();
+    ccb.println(
         "void "
             + tokenizerData.parserName
             + "TokenManager::tokenLexicalActions(Token* matchedToken) {");
-    dumpLexicalActions(
-        allMatches, TokenizerData.MatchType.TOKEN, "matchedToken->kind()", codeGenerator);
-    codeGenerator.println("}");
+    dumpLexicalActions(ccb, allMatches, TokenizerData.MatchType.TOKEN, "matchedToken->kind()");
+    ccb.println("}");
+    ccb.println();
 
-    codeGenerator.println(
+    ccb.println(
         "void "
             + tokenizerData.parserName
             + "TokenManager::skipLexicalActions(const Token* matchedToken) {");
-    dumpLexicalActions(allMatches, TokenizerData.MatchType.SKIP, "jjmatchedKind", codeGenerator);
-    dumpLexicalActions(
-        allMatches, TokenizerData.MatchType.SPECIAL_TOKEN, "jjmatchedKind", codeGenerator);
-    codeGenerator.println("}");
+    dumpLexicalActions(ccb, allMatches, TokenizerData.MatchType.SKIP, "jjmatchedKind");
+    dumpLexicalActions(ccb, allMatches, TokenizerData.MatchType.SPECIAL_TOKEN, "jjmatchedKind");
+    ccb.println("}");
+    ccb.println();
 
     // More actions.
-    codeGenerator.println(
-        "void " + tokenizerData.parserName + "TokenManager::moreLexicalActions() {");
-    codeGenerator.println("jjimageLen += (lengthOfMatch = jjmatchedPos + 1);");
-    dumpLexicalActions(allMatches, TokenizerData.MatchType.MORE, "jjmatchedKind", codeGenerator);
-    codeGenerator.println("}");
-    codeGenerator.switchToStaticsFile();
+    ccb.println("void " + tokenizerData.parserName + "TokenManager::moreLexicalActions() {");
+    ccb.println("jjimageLen += (lengthOfMatch = jjmatchedPos + 1);");
+    dumpLexicalActions(ccb, allMatches, TokenizerData.MatchType.MORE, "jjmatchedKind");
+    ccb.println("}");
+    ccb.println();
 
-    codeGenerator.printLiteralArray("lexStateNames", tokenizerData.lexStateNames);
+    ccb.switchToStaticsFile();
+    ccb.printLiteralArray("lexStateNames", tokenizerData.lexStateNames);
   }
 
-  private void dumpLexicalActions(
+  private static void dumpLexicalActions(
+      final CppCodeBuilder ccb,
       final Map<Integer, TokenizerData.MatchInfo> allMatches,
       final TokenizerData.MatchType matchType,
-      final String kindString,
-      final CppCodeBuilder codeGenerator) {
+      final String kindString) {
     switch (matchType) {
       case SKIP:
         break;
@@ -489,32 +558,32 @@ class TokenManagerCodeGenerator implements org.javacc.parser.TokenManagerCodeGen
       default:
         break;
     }
-    codeGenerator.println("  switch(" + kindString + ") {");
+    ccb.println("  switch(" + kindString + ") {");
     for (final int i : allMatches.keySet()) {
       final TokenizerData.MatchInfo matchInfo = allMatches.get(i);
       if ((matchInfo.action == null) || (matchInfo.matchType != matchType)) {
         continue;
       }
-      codeGenerator.println("    case " + i + ": {\n");
-      codeGenerator.println("      " + matchInfo.action);
-      codeGenerator.println("      break;");
-      codeGenerator.println("    }");
+      ccb.println("    case " + i + ": {");
+      ccb.println("      " + matchInfo.action.trim());
+      ccb.println("      break;");
+      ccb.println("    }");
     }
-    codeGenerator.println("    default: break;");
-    codeGenerator.println("  }");
+    ccb.println("    default: break;");
+    ccb.println("  }");
   }
 
   private static void generateBitVector(
-      final String name, final BitSet bits, final CppCodeBuilder codeGenerator) {
-    codeGenerator.println("static const unsigned long long " + name + "[] = {");
-    codeGenerator.print("   ");
+      final CppCodeBuilder ccb, final String name, final BitSet bits) {
+    ccb.println("static const unsigned long long " + name + "[] = {");
     final long[] longs = bits.toLongArray();
     for (int i = 0; i < longs.length; i++) {
       if (i > 0) {
-        codeGenerator.print(", ");
+        ccb.print(", ");
       }
-      codeGenerator.print("" + Long.toUnsignedString(longs[i]) + "ULL");
+      ccb.print("  " + Long.toUnsignedString(longs[i]) + "ULL");
     }
-    codeGenerator.println("};");
+    ccb.println();
+    ccb.println("};");
   }
 }

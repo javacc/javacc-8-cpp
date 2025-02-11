@@ -19,6 +19,7 @@
 #include "Bug.h"
 
 using namespace std;
+using namespace mns;
 
 #define MYPARSER Bug
 #define MYTM BugTokenManager

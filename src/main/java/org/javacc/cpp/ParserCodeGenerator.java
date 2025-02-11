@@ -1,19 +1,19 @@
-// Copyright 2011 Google Inc. All Rights Reserved.
-// Author: sreeni@google.com (Sreeni Viswanadha)
-
 /*
- * Copyright (c) 2006, Sun Microsystems, Inc. All rights reserved.
+ * Copyright (c) 2020-2025, Sreeni Viswanadha <sreeni@viswanadha.net>.
+ * Copyright (c) 2024-2025, Marc Mazas <mazas.marc@gmail.com>.
+ * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *
- * * Redistributions of source code must retain the above copyright notice, this
- * list of conditions and the following disclaimer. * Redistributions in binary
- * form must reproduce the above copyright notice, this list of conditions and
- * the following disclaimer in the documentation and/or other materials provided
- * with the distribution. * Neither the name of the Sun Microsystems, Inc. nor
- * the names of its contributors may be used to endorse or promote products
- * derived from this software without specific prior written permission.
+ *     * Redistributions of source code must retain the above copyright notice,
+ *       this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above copyright
+ *       notice, this list of conditions and the following disclaimer in the
+ *       documentation and/or other materials provided with the distribution.
+ *     * Neither the names of of the copyright holders nor the names of its
+ *       contributors may be used to endorse or promote products derived from
+ *       this software without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
@@ -24,13 +24,20 @@
  * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
  * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
+ * THE POSSIBILITY OF SUCH DAMAGE.
  */
-
 package org.javacc.cpp;
 
-
+import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.Hashtable;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 import org.javacc.parser.Action;
 import org.javacc.parser.BNFProduction;
 import org.javacc.parser.Choice;
@@ -57,924 +64,968 @@ import org.javacc.parser.ZeroOrMore;
 import org.javacc.parser.ZeroOrOne;
 import org.javacc.utils.CodeBuilder;
 
-import java.io.File;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Enumeration;
-import java.util.HashMap;
-import java.util.Hashtable;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-
-/**
- * Generate the parser.
- */
+/** Generate the parser. */
 class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
-
-  /**
-   * These lists are used to maintain expansions for which code generation in
-   * phase 2 and phase 3 is required. Whenever a call is generated to a phase 2
-   * or phase 3 routine, a corresponding entry is added here if it has not
-   * already been added. The phase 3 routines have been optimized in version
-   * 0.7pre2. Essentially only those methods (and only those portions of these
-   * methods) are generated that are required. The lookahead amount is used to
-   * determine this. This change requires the use of a hash table because it is
-   * now possible for the same phase 3 routine to be requested multiple times
-   * with different lookaheads. The hash table provides a easily searchable
-   * capability to determine the previous requests. The phase 3 routines now are
-   * performed in a two step process - the first step gathers the requests
-   * (replacing requests with lower lookaheads with those requiring larger
-   * lookaheads). The second step then generates these methods. This
-   * optimization and the hashtable makes it look like we do not need the flag
-   * "phase3done" any more. But this has not been removed yet.
+  /*
+   * These lists are used to maintain expansions for which code generation in phase 2 and phase 3
+   *  is required.
+   * Whenever a call is generated to a phase 2 or phase 3 routine, a corresponding entry is added
+   *  here if it has not already been added.
+   * The phase 3 routines have been optimized in version 0.7pre2.
+   * Essentially only those methods (and only those portions of these methods) are generated
+   *  that are required.
+   * The lookahead amount is used to determine this.
+   * This change requires the use of a hash table because it is now possible for the same phase 3
+   *  routine to be requested multiple times with different lookaheads.
+   * The hash table provides a easily searchable capability to determine the previous requests.
+   * The phase 3 routines nExpressionTreeConstantsow are performed in a two step process:
+   *  - the first step gathers the requests (replacing requests with lower lookaheads with those
+   *     requiring larger lookaheads),
+   *  - the second step then generates these methods.
    */
 
-  private final Context                 context;
-  private CppCodeBuilder                codeGenerator;
+  private final List<Lookahead> phase2list = new ArrayList<>();
+  private final List<Phase3Data> phase3list = new ArrayList<>();
+  private boolean jj2LA;
+  private final Hashtable<Expansion, Phase3Data> phase3table = new Hashtable<>();
 
-  private final Map<Expansion, String>  internalNames   = new HashMap<>();
+  private final Context context;
+  private final Map<Expansion, String> internalNames = new HashMap<>();
   private final Map<Expansion, Integer> internalIndexes = new HashMap<>();
 
-  ParserCodeGenerator(Context context) {
+  private CppCodeBuilder ccb;
+
+  ParserCodeGenerator(final Context context) {
     this.context = context;
   }
 
-  void printInclude(String include) {
-    if (include != null && include.length() > 0) {
-      if (include.charAt(0) == '<') {
-        codeGenerator.println("#include " + include);
-      } else {
-        codeGenerator.println("#include \"" + include + "\"");
-      }
-    }
-  }
   @Override
-  public void generateCode(CodeGeneratorSettings settings, ParserData parserData) {
-    List<String> tn = new ArrayList<>(context.globals().toolNames);
+  public void generateCode(final CodeGeneratorSettings settings, final ParserData parserData) {
+
+    final List<String> tn = new ArrayList<>(context.globals().toolNames);
     tn.add(JavaCCGlobals.toolName);
 
-    File file = new File(Options.getOutputDirectory(), parserData.parserName + ".cc");
-    codeGenerator = CppCodeBuilder.of(context, settings).setFile(file);
+    final File file = new File(Options.getOutputDirectory(), parserData.parserName + ".cc");
+    ccb = CppCodeBuilder.of(context, settings).setFile(file);
 
-    
     if (context.globals().jjtreeGenerated) {
-      codeGenerator.switchToStaticsFile();
-      codeGenerator.println("#include \"" + context.globals().cu_name + "Tree.h\"\n");
+      ccb.switchToStaticsFile();
+      ccb.println("#include \"" + context.globals().cu_name + "Tree.h\"\n");
     }
 
-    codeGenerator.switchToIncludeFile();
-    String guard = "JAVACC_" + parserData.parserName.toUpperCase() + "_H";
-    codeGenerator.println("#ifndef " + guard);
-    codeGenerator.println("#define " + guard);
-    codeGenerator.println();
-    
+    ccb.switchToIncludeFile();
+    final String guard = "JAVACC_" + parserData.parserName.toUpperCase() + "_H";
+    ccb.println("#ifndef " + guard);
+    ccb.println("#define " + guard);
+    ccb.println();
+
     if (!Options.getLibrary().isEmpty()) {
-        codeGenerator.println("#include \"ImportExport.h\"");
+      ccb.println("#include \"ImportExport.h\"");
     }
-    codeGenerator.println("#include \"JavaCC.h\"");
-    codeGenerator.println("#include \"CharStream.h\"");
-    codeGenerator.println("#include \"Token.h\"");
-    codeGenerator.println("#include \"TokenManager.h\"");
-    if (!Options.getTokenInclude().isEmpty()) {
-        codeGenerator.println("#include \"" + Options.getTokenInclude() +"\"");
-    }
+    ccb.println("#include \"JavaCC.h\"");
+    ccb.println("#include \"CharStream.h\"");
+    ccb.println("#include \"Token.h\"");
+    ccb.println("#include \"TokenManager.h\"");
+    printInclude(Options.getTokenInclude());
     printInclude(Options.getParserInclude());
 
     if (Options.getTokenConstantsInclude().isEmpty()) {
-        codeGenerator.println("#include \"" + context.globals().cu_name + "Constants.h\"");
+      ccb.println("#include \"" + context.globals().cu_name + "Constants.h\"");
     } else {
-        codeGenerator.println("#include \"" + Options.getTokenConstantsInclude() + "\"");
+      ccb.println("#include \"" + Options.getTokenConstantsInclude() + "\" // user defined option");
     }
-
     if (context.globals().jjtreeGenerated) {
-      codeGenerator.println("#include \"JJT" + context.globals().cu_name + "State.h\"");
+      ccb.println("#include \"JJT" + context.globals().cu_name + "State.h\"");
     }
-
-    codeGenerator.println("#include \"DefaultParserErrorHandler.h\"");
-
+    ccb.println("#include \"DefaultParserErrorHandler.h\"");
     if (context.globals().jjtreeGenerated) {
-      codeGenerator.println("#include \"" + context.globals().cu_name + "Tree.h\"");
+      ccb.println("#include \"" + context.globals().cu_name + "Tree.h\"");
     }
+    ccb.println();
 
     if (Options.hasNamespace()) {
-      codeGenerator.println("namespace " + Options.stringValue("NAMESPACE_OPEN"));
+      ccb.println("namespace " + Options.stringValue("NAMESPACE_OPEN") + " // user defined option");
+      ccb.println();
     }
 
-    codeGenerator.print("  struct ");
+    ccb.println("/* Base code I (.h) */");
+    ccb.println();
+    ccb.print("struct ");
     if (!Options.getLibrary().isEmpty()) {
-    	codeGenerator.print(parserData.parserName.toUpperCase() + "_API ");
+      ccb.print(parserData.parserName.toUpperCase() + "_API ");
     }
-    codeGenerator.println("JJCalls {");
-    codeGenerator.println("    int        gen;");
-    codeGenerator.println("    int        arg;");
-    codeGenerator.println("    JJCalls*   next;");
-    codeGenerator.println("    Token*     first;");
-    codeGenerator.println("    ~JJCalls() { if (next) delete next; }");
-    codeGenerator.println("     JJCalls() { next = nullptr; arg = 0; gen = -1; first = nullptr; }");
-    codeGenerator.println("  };");
-    codeGenerator.println("");
+    ccb.println("JJCalls {");
+    ccb.println("  int        arg;");
+    ccb.println("  int        gen;");
+    ccb.println("  Token*     first;");
+    ccb.println("  JJCalls*   next;");
+    ccb.println("  JJCalls()  {");
+    ccb.println("    arg   = 0;");
+    ccb.println("    gen   = -1;");
+    ccb.println("    first = nullptr;");
+    ccb.println("    next  = nullptr;");
+    ccb.println("  }");
+    ccb.println("  ~JJCalls() {");
+    ccb.println("    if (next) delete next;");
+    ccb.println("  }");
+    ccb.println("};");
+    ccb.println();
 
+    ccb.genClassStart("", context.globals().cu_name, new String[] {}, new String[0]);
 
-    codeGenerator.genClassStart("", context.globals().cu_name, new String[] {}, new String[0]);
-
-    codeGenerator.switchToMainFile();
+    ccb.switchToMainFile();
+    ccb.println("/* User code (parser_begin-parser_end section) */");
     if (context.globals().cu_to_insertion_point_2.size() != 0) {
-      codeGenerator.printTokenSetup(context.globals().cu_to_insertion_point_2.get(0));
-      for (Token token : context.globals().cu_to_insertion_point_2) {
-        codeGenerator.printToken(token);
+      ccb.printTokenSetup(context.globals().cu_to_insertion_point_2.get(0));
+      for (final Token token : context.globals().cu_to_insertion_point_2) {
+        ccb.printToken(token);
       }
     }
-
-    codeGenerator.switchToMainFile();
-
     if (Options.hasNamespace()) {
-      codeGenerator.println("namespace " + Options.stringValue("NAMESPACE_OPEN"));
+      ccb.println("namespace " + Options.stringValue("NAMESPACE_OPEN") + " // user defined option");
     }
+    ccb.println();
+    ccb.println("/* Generated code for user productions (.cc) */");
+    ccb.println();
 
-    codeGenerator.println("");
-    codeGenerator.println("");
+    ccb.switchToIncludeFile();
+    ccb.println();
+    ccb.println("/* Generated code for user productions (.h) */");
+    ccb.println();
 
-    build(codeGenerator);
+    ccb.switchToMainFile();
 
-    codeGenerator.switchToIncludeFile();
-    codeGenerator.println("");
-    codeGenerator.println("public: ");
-    codeGenerator.println("  void setErrorHandler(ParserErrorHandler* eh) {");
-    codeGenerator.println("    if (delete_eh) delete errorHandler;");
-    codeGenerator.println("    errorHandler = eh;");
-    codeGenerator.println("    delete_eh = false;");
-    codeGenerator.println("  }");
-    codeGenerator.println("  const ParserErrorHandler* getErrorHandler() {");
-    codeGenerator.println("    return errorHandler;");
-    codeGenerator.println("  }");
-    codeGenerator.println("  static const JJChar* getTokenImage(int kind) {");
-    codeGenerator.println("    return kind >= 0 ? " + getTokenImages() + "[kind] : " + getTokenImages() + "[0];");
-    codeGenerator.println("  }");
-    codeGenerator.println("  static const JJChar* getTokenLabel(int kind) {");
-    codeGenerator.println("    return kind >= 0 ? " + getTokenLabels() + "[kind] : " + getTokenLabels() + "[0];");
-    codeGenerator.println("  }");
-    codeGenerator.println("");
-    codeGenerator.println("  TokenManager*          token_source = nullptr;");
-    codeGenerator.println("  CharStream*            jj_input_stream = nullptr;");
-    codeGenerator.println("  Token*                 token = nullptr;  // Current token.");
-    codeGenerator.println("  Token*                 jj_nt = nullptr;  // Next token.");
-    codeGenerator.println("");
-    codeGenerator.println("private: ");
-    codeGenerator.println("  int                    jj_ntk;");
+    build();
 
-    codeGenerator.println("  JJCalls                jj_2_rtns[" + (context.globals().jj2index + 1) + "];");
-    codeGenerator.println("  bool                   jj_rescan;");
-    codeGenerator.println("  int                    jj_gc;");
-    codeGenerator.println("  Token*                 jj_scanpos;");
-    codeGenerator.println("  Token*                 jj_lastpos;");
-    codeGenerator.println("  int                    jj_la;");
-    codeGenerator.println("  bool                   jj_lookingAhead;  // Whether we are looking ahead.");
-    codeGenerator.println("  bool                   jj_semLA;");
+    ccb.switchToMainFile();
+    ccb.println("  /* Base code II (.cc) */");
+    ccb.println();
 
-    codeGenerator.println("  int                    jj_gen;");
-    codeGenerator.println("  int                    jj_la1[" + (context.globals().maskindex + 1) + "];");
-    codeGenerator.println("  ParserErrorHandler*    errorHandler = nullptr;");
-    codeGenerator.println("");
-    codeGenerator.println("protected: ");
-    codeGenerator.println("  bool                   delete_eh = false;");
-    codeGenerator.println("  bool                   delete_tokens = true;");
-    codeGenerator.println("  bool                   hasError;");
-    codeGenerator.println("");
-    int tokenMaskSize = ((context.globals().tokenCount - 1) / 32) + 1;
+    ccb.switchToIncludeFile();
+    ccb.println();
+    ccb.println("/* Base code II (.h) */");
+    ccb.println();
+    ccb.println("public: ");
+    ccb.println("  void setErrorHandler(ParserErrorHandler* eh) {");
+    ccb.println("    if (delete_eh) delete errorHandler;");
+    ccb.println("    errorHandler = eh;");
+    ccb.println("    delete_eh = false;");
+    ccb.println("  }");
+    ccb.println();
+    ccb.println("  const ParserErrorHandler* getErrorHandler() {");
+    ccb.println("    return errorHandler;");
+    ccb.println("  }");
+    ccb.println();
+    ccb.println("  static const JJChar* getTokenImage(int kind) {");
+    ccb.println(
+        "    return kind >= 0 ? " + getTokenImages() + "[kind] : " + getTokenImages() + "[0];");
+    ccb.println("  }");
+    ccb.println();
+    ccb.println("  static const JJChar* getTokenLabel(int kind) {");
+    ccb.println(
+        "    return kind >= 0 ? " + getTokenLabels() + "[kind] : " + getTokenLabels() + "[0];");
+    ccb.println("  }");
+    ccb.println();
+    ccb.println("  TokenManager*          token_source = nullptr;");
+    ccb.println("  CharStream*            jj_input_stream = nullptr;");
+    ccb.println("  Token*                 token = nullptr;  // Current token.");
+    ccb.println("  Token*                 jj_nt = nullptr;  // Next token.");
+    ccb.println();
+    ccb.println("private: ");
+    ccb.println("  int                    jj_ntk;");
 
+    ccb.println("  JJCalls                jj_2_rtns[" + (context.globals().jj2index + 1) + "];");
+    ccb.println("  bool                   jj_rescan;");
+    ccb.println("  int                    jj_gc;");
+    ccb.println("  Token*                 jj_scanpos;");
+    ccb.println("  Token*                 jj_lastpos;");
+    ccb.println("  int                    jj_la;");
+    ccb.println("  bool                   jj_lookingAhead;  // Whether we are looking ahead.");
+    ccb.println("  bool                   jj_semLA;");
+
+    ccb.println("  int                    jj_gen;");
+    ccb.println("  int                    jj_la1[" + (context.globals().maskindex + 1) + "];");
+    ccb.println("  ParserErrorHandler*    errorHandler = nullptr;");
+    ccb.println();
+    ccb.println("protected: ");
+    ccb.println("  bool                   delete_eh = false;");
+    ccb.println("  bool                   delete_tokens = true;");
+    ccb.println("  bool                   hasError;");
+    ccb.println();
+
+    final int tokenMaskSize = ((context.globals().tokenCount - 1) / 32) + 1;
     if (Options.getErrorReporting() && (tokenMaskSize > 0)) {
-      codeGenerator.switchToStaticsFile();
-      codeGenerator.println("#include \"TokenManagerError.h\"");
+      ccb.switchToStaticsFile();
+      ccb.println("#include \"TokenManagerError.h\"");
+      ccb.println();
+      ccb.println("/* Base code I (.cc, static) */");
+      ccb.println();
       for (int i = 0; i < tokenMaskSize; i++) {
         if (context.globals().maskVals.size() > 0) {
-          codeGenerator.println("static unsigned int jj_la1_" + i + "[] = {");
-          for (int[] tokenMask : context.globals().maskVals) {
-            codeGenerator.print("0x" + Integer.toHexString(tokenMask[i]) + ",");
+          ccb.println("static unsigned int jj_la1_" + i + "[] = {");
+          int j = 0;
+          for (final int[] tokenMask : context.globals().maskVals) {
+            if (j > 0) {
+              ccb.print(", ");
+            } else {
+              j++;
+              ccb.print("  ");
+            }
+            ccb.print("0x" + Integer.toHexString(tokenMask[i]));
           }
-          codeGenerator.println("};");
+          ccb.println();
+          ccb.println("};");
         }
       }
+      ccb.println();
     }
 
     if (Options.getDepthLimit() > 0) {
-      codeGenerator.println("  private: int jj_depth;");
-      codeGenerator.println("  private: bool jj_depth_error;");
-      codeGenerator.println("  friend class __jj_depth_inc;");
-      codeGenerator.println("  class __jj_depth_inc {public:");
-      codeGenerator.println("    " + context.globals().cu_name + "* parent;");
-      codeGenerator.println("    __jj_depth_inc(" + context.globals().cu_name + "* p): parent(p) { parent->jj_depth++; };");
-      codeGenerator.println("    ~__jj_depth_inc(){ parent->jj_depth--; }");
-      codeGenerator.println("  };");
+      ccb.println("  private: int jj_depth;");
+      ccb.println("  private: bool jj_depth_error;");
+      ccb.println("  friend class __jj_depth_inc;");
+      ccb.println("  class __jj_depth_inc {public:");
+      ccb.println("    " + context.globals().cu_name + "* parent;");
+      ccb.println(
+          "    __jj_depth_inc("
+              + context.globals().cu_name
+              + "* p): parent(p) { parent->jj_depth++; };");
+      ccb.println("    ~__jj_depth_inc(){ parent->jj_depth--; }");
+      ccb.println("  };");
+      ccb.println();
     }
+
     if (!Options.getStackLimit().equals("")) {
-      codeGenerator.println("  public: size_t jj_stack_limit;");
-      codeGenerator.println("  private: void* jj_stack_base;");
-      codeGenerator.println("  private: bool jj_stack_error;");
+      ccb.println("  public: size_t jj_stack_limit;");
+      ccb.println("  private: void* jj_stack_base;");
+      ccb.println("  private: bool jj_stack_error;");
+      ccb.println();
     }
 
-    codeGenerator.println("");
+    ccb.switchToIncludeFile(); // TEMP
+    ccb.println("  Token*                 head;");
+    ccb.println();
+    ccb.println("public: ");
 
-    codeGenerator.println("  /** Constructor with user supplied TokenManager. */");
-
-    codeGenerator.switchToIncludeFile(); // TEMP
-    codeGenerator.println("  Token*                 head;");
-    codeGenerator.println("");
-    codeGenerator.println("public: ");
-    codeGenerator.generateMethodDefHeader(" ", context.globals().cu_name,
-        context.globals().cu_name + "(TokenManager* tokenManager)");
-    codeGenerator.println("{");
-    codeGenerator.println("    head = nullptr;");
-    codeGenerator.println("    ReInit(tokenManager);");
+    ccb.generateMethodDefHeader(
+        "", context.globals().cu_name, context.globals().cu_name + "(TokenManager* tokenManager)");
+    ccb.println(" {");
+    ccb.println("  head = nullptr;");
+    ccb.println("  ReInit(tokenManager);");
     if (Options.getTokenManagerUsesParser()) {
-      codeGenerator.println("    tokenManager->setParser(this);");
+      ccb.println("    tokenManager->setParser(this);");
     }
-    codeGenerator.println("}");
+    ccb.println("}");
+    ccb.println();
 
-    codeGenerator.switchToIncludeFile();
-    codeGenerator.println("  virtual ~" + context.globals().cu_name + "();");
-    codeGenerator.switchToMainFile();
-    codeGenerator.println(context.globals().cu_name + "::~" + context.globals().cu_name + "()");
-    codeGenerator.println("{");
-    codeGenerator.println("  clear();");
-    codeGenerator.println("}");
-    codeGenerator.generateMethodDefHeader("void", context.globals().cu_name, "ReInit(TokenManager* tokenManager)");
-    codeGenerator.println("{");
-    codeGenerator.println("    clear();");
-    codeGenerator.println("    errorHandler = new DefaultParserErrorHandler();");
-    codeGenerator.println("    delete_eh = true;");
-    codeGenerator.println("    hasError = false;");
-    codeGenerator.println("    token_source = tokenManager;");
-    codeGenerator.println("    head = token = new " + getTokenType() + ";");
-    codeGenerator.println("    jj_lookingAhead = false;");
-    codeGenerator.println("    jj_rescan = false;");
-    codeGenerator.println("    jj_done = false;");
-    codeGenerator.println("    jj_scanpos = jj_lastpos = nullptr;");
-    codeGenerator.println("    jj_gc = 0;");
-    codeGenerator.println("    jj_kind = -1;");
-    codeGenerator.println("    indent = 0;");
-    codeGenerator.println("    trace = " + Options.getDebugParser() + ";");
+    ccb.switchToIncludeFile();
+    ccb.println("  virtual ~" + context.globals().cu_name + "();");
+    ccb.println();
+    ccb.switchToMainFile();
+    ccb.print(context.globals().cu_name + "::~" + context.globals().cu_name + "()");
+    ccb.println(" {");
+    ccb.println("  clear();");
+    ccb.println("}");
+    ccb.println();
+
+    ccb.generateMethodDefHeader(
+        "void", context.globals().cu_name, "ReInit(TokenManager* tokenManager)");
+    ccb.println("{");
+    ccb.println("  clear();");
+    ccb.println("  errorHandler = new DefaultParserErrorHandler();");
+    ccb.println("  delete_eh = true;");
+    ccb.println("  hasError = false;");
+    ccb.println("  token_source = tokenManager;");
+    ccb.println("  head = token = new " + getTokenType() + ";");
+    ccb.println("  jj_lookingAhead = false;");
+    ccb.println("  jj_rescan = false;");
+    ccb.println("  jj_done = false;");
+    ccb.println("  jj_scanpos = jj_lastpos = nullptr;");
+    ccb.println("  jj_gc = 0;");
+    ccb.println("  jj_kind = -1;");
+    ccb.println("  indent = 0;");
+    ccb.println("  trace = " + Options.getDebugParser() + ";");
     if (!Options.getStackLimit().equals("")) {
-      codeGenerator.println("    jj_stack_limit = " + Options.getStackLimit() + ";");
-      codeGenerator.println("    jj_stack_error = jj_stack_check(true);");
+      ccb.println("  jj_stack_limit = " + Options.getStackLimit() + ";");
+      ccb.println("  jj_stack_error = jj_stack_check(true);");
     }
 
     if (Options.getCacheTokens()) {
-      codeGenerator.println("    token->next() = jj_nt = token_source->getNextToken();");
+      ccb.println("  token->next() = jj_nt = token_source->getNextToken();");
     } else {
-      codeGenerator.println("    jj_ntk = -1;");
+      ccb.println("  jj_ntk = -1;");
     }
     if (context.globals().jjtreeGenerated) {
-      codeGenerator.println("    jjtree.reset();");
+      ccb.println("  jjtree.reset();");
     }
     if (Options.getDepthLimit() > 0) {
-      codeGenerator.println("    jj_depth = 0;");
-      codeGenerator.println("    jj_depth_error = false;");
+      ccb.println("  jj_depth = 0;");
+      ccb.println("  jj_depth_error = false;");
     }
     if (Options.getErrorReporting()) {
-      codeGenerator.println("    jj_gen = 0;");
+      ccb.println("  jj_gen = 0;");
       if (context.globals().maskindex > 0) {
-        codeGenerator.println("    for (int i = 0; i < " + context.globals().maskindex + "; i++) jj_la1[i] = -1;");
+        ccb.println(
+            "  for (int i = 0; i < " + context.globals().maskindex + "; i++) { jj_la1[i] = -1; }");
       }
     }
-    codeGenerator.println("  }");
-    codeGenerator.println("");
+    ccb.println("}");
+    ccb.println();
 
-    codeGenerator.generateMethodDefHeader("void", context.globals().cu_name, "clear()");
-    codeGenerator.println("{");
-    codeGenerator.println("  //Since token manager was generate from outside,");
-    codeGenerator.println("  //parser should not take care of deleting");
-    codeGenerator.println("  //if (token_source) delete token_source;");
-    codeGenerator.println("  if (delete_tokens && head) {");
-    codeGenerator.println("    Token* next;");
-    codeGenerator.println("    Token* t = head;");
-    codeGenerator.println("    while (t) {");
-    codeGenerator.println("      next = t->next();");
-    codeGenerator.println("      delete t;");
-    codeGenerator.println("      t = next;");
-    codeGenerator.println("    }");
-    codeGenerator.println("  }");
-    codeGenerator.println("  if (delete_eh) {");
-    codeGenerator.println("    delete errorHandler, errorHandler = nullptr;");
-    codeGenerator.println("    delete_eh = false;");
-    codeGenerator.println("  }");
+    ccb.generateMethodDefHeader("void", context.globals().cu_name, "clear()");
+    ccb.println("{");
+    ccb.println(
+        "  // Since token manager was generated from outside, parser should not take care of deleting it");
+    ccb.println("  // if (token_source) delete token_source;");
+    ccb.println("  if (delete_tokens && head) {");
+    ccb.println("    Token* next;");
+    ccb.println("    Token* t = head;");
+    ccb.println("    while (t) {");
+    ccb.println("      next = t->next();");
+    ccb.println("      delete t;");
+    ccb.println("      t = next;");
+    ccb.println("    }");
+    ccb.println("  }");
+    ccb.println("  if (delete_eh) {");
+    ccb.println("    delete errorHandler, errorHandler = nullptr;");
+    ccb.println("    delete_eh = false;");
+    ccb.println("  }");
     if (Options.getDepthLimit() > 0) {
-      codeGenerator.println("  assert(jj_depth==0);");
+      ccb.println("  assert(jj_depth==0);");
     }
-    codeGenerator.println("}");
-    codeGenerator.println("");
+    ccb.println("}");
+    ccb.println();
 
     if (!Options.getStackLimit().equals("")) {
-      codeGenerator.println("");
-      codeGenerator.switchToIncludeFile();
-      codeGenerator.println(" virtual");
-      codeGenerator.switchToMainFile();
-      codeGenerator.generateMethodDefHeader("bool ", context.globals().cu_name, "jj_stack_check(bool init)");
-      codeGenerator.println("  {");
-      codeGenerator.println("     if(init) {");
-      codeGenerator.println("       jj_stack_base = nullptr;");
-      codeGenerator.println("       return false;");
-      codeGenerator.println("     } else {");
-      codeGenerator.println("       volatile int q = 0;");
-      codeGenerator.println("       if(!jj_stack_base) {");
-      codeGenerator.println("         jj_stack_base = (void*)&q;");
-      codeGenerator.println("         return false;");
-      codeGenerator.println("       } else {");
-      codeGenerator.println("         // Stack can grow in both directions, depending on arch");
-      codeGenerator.println("         std::ptrdiff_t used = (char*)jj_stack_base-(char*)&q;");
-      codeGenerator.println("         return (std::abs(used) > jj_stack_limit);");
-      codeGenerator.println("       }");
-      codeGenerator.println("     }");
-      codeGenerator.println("  }");
+      ccb.println();
+      ccb.switchToIncludeFile();
+      ccb.println(" virtual");
+      ccb.switchToMainFile();
+      ccb.generateMethodDefHeader("bool", context.globals().cu_name, "jj_stack_check(bool init)");
+      ccb.println(" {");
+      ccb.println("   if (init) {");
+      ccb.println("     jj_stack_base = nullptr;");
+      ccb.println("     return false;");
+      ccb.println("   } else {");
+      ccb.println("     volatile int q = 0;");
+      ccb.println("     if (!jj_stack_base) {");
+      ccb.println("       jj_stack_base = (void*)&q;");
+      ccb.println("       return false;");
+      ccb.println("     } else {");
+      ccb.println("       // Stack can grow in both directions, depending on arch");
+      ccb.println("       std::ptrdiff_t used = (char*)jj_stack_base-(char*)&q;");
+      ccb.println("       return (std::abs(used) > jj_stack_limit);");
+      ccb.println("     }");
+      ccb.println("   }");
+      ccb.println("}");
     }
 
-
-    codeGenerator.generateMethodDefHeader("Token* ", context.globals().cu_name, "jj_consume_token(int kind)");
-    codeGenerator.println("  {");
+    ccb.generateMethodDefHeader("Token*", context.globals().cu_name, "jj_consume_token(int kind)");
+    ccb.println(" {");
     if (!Options.getStackLimit().equals("")) {
-      codeGenerator.println("    if(kind != -1 && (jj_stack_error || jj_stack_check(false))) {");
-      codeGenerator.println("      if (!jj_stack_error) {");
-      codeGenerator.println("        errorHandler->otherError(\"Stack overflow while trying to parse\");");
-      codeGenerator.println("        jj_stack_error=true;");
-      codeGenerator.println("      }");
-      codeGenerator.println("      return jj_consume_token(-1);");
-      codeGenerator.println("    }");
+      ccb.println("  if (kind != -1 && (jj_stack_error || jj_stack_check(false))) {");
+      ccb.println("    if (!jj_stack_error) {");
+      ccb.println("      errorHandler->otherError(\"Stack overflow while trying to parse\");");
+      ccb.println("      jj_stack_error=true;");
+      ccb.println("    }");
+      ccb.println("    return jj_consume_token(-1);");
+      ccb.println("  }");
     }
     if (Options.getCacheTokens()) {
-      codeGenerator.println("    Token* oldToken = token;");
-      codeGenerator.println("    if ((token = jj_nt)->next() != nullptr) jj_nt = jj_nt->next();");
-      codeGenerator.println("    else jj_nt = jj_nt->next() = token_source->getNextToken();");
+      ccb.println("  Token* oldToken = token;");
+      ccb.println("  if ((token = jj_nt)->next() != nullptr) jj_nt = jj_nt->next();");
+      ccb.println("  else jj_nt = jj_nt->next() = token_source->getNextToken();");
     } else {
-      codeGenerator.println("    Token* oldToken;");
-      codeGenerator.println("    if ((oldToken = token)->next() != nullptr) token = token->next();");
-      codeGenerator.println("    else token = token->next() = token_source->getNextToken();");
-      codeGenerator.println("    jj_ntk = -1;");
+      ccb.println("  Token* oldToken;");
+      ccb.println("  if ((oldToken = token)->next() != nullptr) token = token->next();");
+      ccb.println("  else token = token->next() = token_source->getNextToken();");
+      ccb.println("  jj_ntk = -1;");
     }
-    codeGenerator.println("    if (token->kind() == kind) {");
+    ccb.println("  if (token->kind() == kind) {");
     if (Options.getErrorReporting()) {
-      codeGenerator.println("      jj_gen++;");
+      ccb.println("    jj_gen++;");
       if (context.globals().jj2index != 0) {
-        codeGenerator.println("      if (++jj_gc > 100) {");
-        codeGenerator.println("        jj_gc = 0;");
-        codeGenerator.println("        for (int i = 0; i < " + context.globals().jj2index + "; i++) {");
-        codeGenerator.println("          JJCalls *c = &jj_2_rtns[i];");
-        codeGenerator.println("          while (c != nullptr) {");
-        codeGenerator.println("            if (c->gen < jj_gen) c->first = nullptr;");
-        codeGenerator.println("            c = c->next;");
-        codeGenerator.println("          }");
-        codeGenerator.println("        }");
-        codeGenerator.println("      }");
+        ccb.println("    if (++jj_gc > 100) {");
+        ccb.println("      jj_gc = 0;");
+        ccb.println("      for (int i = 0; i < " + context.globals().jj2index + "; i++) {");
+        ccb.println("        JJCalls *c = &jj_2_rtns[i];");
+        ccb.println("        while (c != nullptr) {");
+        ccb.println("          if (c->gen < jj_gen) c->first = nullptr;");
+        ccb.println("          c = c->next;");
+        ccb.println("        }");
+        ccb.println("      }");
+        ccb.println("    }");
       }
     }
     if (Options.getDebugParser()) {
-      codeGenerator.println("      trace_token(token, \"\");");
+      ccb.println("    trace_token(token, \"\");");
     }
-    codeGenerator.println("      return token;");
-    codeGenerator.println("    }");
+    ccb.println("    return token;");
+    ccb.println("  }");
     if (Options.getCacheTokens()) {
-      codeGenerator.println("    jj_nt = token;");
+      ccb.println("  jj_nt = token;");
     }
-    codeGenerator.println("    token = oldToken;");
+    ccb.println("  token = oldToken;");
     if (Options.getErrorReporting()) {
-      codeGenerator.println("    jj_kind = kind;");
+      ccb.println("  jj_kind = kind;");
     }
-    // codeGenerator.genCodeLine(" throw generateParseException();");
+    // codeGen.genCodeLine(" throw generateParseException();");
     if (!Options.getStackLimit().equals("")) {
-      codeGenerator.println("    if (!jj_stack_error) {");
+      ccb.println("  if (!jj_stack_error) {");
     }
-    codeGenerator.println("    const JJString expectedImage = getTokenImage(kind);");
-    codeGenerator.println("    const JJString expectedLabel = getTokenLabel(kind);");
+    ccb.println("  const JJString expectedImage = getTokenImage(kind);");
+    ccb.println("  const JJString expectedLabel = getTokenLabel(kind);");
 
-    codeGenerator.println("    const Token*   actualToken   = getToken(1);");
-    codeGenerator.println("    const JJString actualImage   = getTokenImage(actualToken->kind());");
-    codeGenerator.println("    const JJString actualLabel   = getTokenLabel(actualToken->kind());");
-    codeGenerator.println(
-        "    errorHandler->unexpectedToken(expectedImage, expectedLabel, actualImage, actualLabel, actualToken);");
+    ccb.println("  const Token*   actualToken   = getToken(1);");
+    ccb.println("  const JJString actualImage   = getTokenImage(actualToken->kind());");
+    ccb.println("  const JJString actualLabel   = getTokenLabel(actualToken->kind());");
+    ccb.println(
+        "  errorHandler->unexpectedToken(expectedImage, expectedLabel, actualImage, actualLabel, actualToken);");
     if (!Options.getStackLimit().equals("")) {
-      codeGenerator.println("    }");
+      ccb.println("  }");
     }
-    codeGenerator.println("    hasError = true;");
-    codeGenerator.println("    return token;");
-    codeGenerator.println("  }");
-    codeGenerator.println("");
+    ccb.println("  hasError = true;");
+    ccb.println("  return token;");
+    ccb.println("}");
+    ccb.println();
 
     if (context.globals().jj2index != 0) {
-      codeGenerator.switchToMainFile();
-      codeGenerator.generateMethodDefHeader("bool ", context.globals().cu_name, "jj_scan_token(int kind)");
-      codeGenerator.println("{");
+      ccb.switchToMainFile();
+      ccb.generateMethodDefHeader("bool", context.globals().cu_name, "jj_scan_token(int kind)");
+      ccb.println(" {");
       if (!Options.getStackLimit().equals("")) {
-        codeGenerator.println("    if(kind != -1 && (jj_stack_error || jj_stack_check(false))) {");
-        codeGenerator.println("      if (!jj_stack_error) {");
-        codeGenerator
-        .println("        errorHandler->otherError(\"Stack overflow while trying to parse\");");
-        codeGenerator.println("        jj_stack_error=true;");
-        codeGenerator.println("      }");
-        codeGenerator.println("      return jj_consume_token(-1);");
-        codeGenerator.println("    }");
+        ccb.println("  if (kind != -1 && (jj_stack_error || jj_stack_check(false))) {");
+        ccb.println("    if (!jj_stack_error) {");
+        ccb.println("      errorHandler->otherError(\"Stack overflow while trying to parse\");");
+        ccb.println("      jj_stack_error=true;");
+        ccb.println("    }");
+        ccb.println("    return jj_consume_token(-1);");
+        ccb.println("  }");
       }
-      codeGenerator.println("    if (jj_scanpos == jj_lastpos) {");
-      codeGenerator.println("      jj_la--;");
-      codeGenerator.println("      if (jj_scanpos->next() == nullptr) {");
-      codeGenerator.println("        jj_lastpos = jj_scanpos = jj_scanpos->next() = token_source->getNextToken();");
-      codeGenerator.println("      } else {");
-      codeGenerator.println("        jj_lastpos = jj_scanpos = jj_scanpos->next();");
-      codeGenerator.println("      }");
-      codeGenerator.println("    } else {");
-      codeGenerator.println("      jj_scanpos = jj_scanpos->next();");
-      codeGenerator.println("    }");
+      ccb.println("  if (jj_scanpos == jj_lastpos) {");
+      ccb.println("    jj_la--;");
+      ccb.println("    if (jj_scanpos->next() == nullptr) {");
+      ccb.println(
+          "      jj_lastpos = jj_scanpos = jj_scanpos->next() = token_source->getNextToken();");
+      ccb.println("    } else {");
+      ccb.println("      jj_lastpos = jj_scanpos = jj_scanpos->next();");
+      ccb.println("    }");
+      ccb.println("  } else {");
+      ccb.println("    jj_scanpos = jj_scanpos->next();");
+      ccb.println("  }");
       if (Options.getErrorReporting()) {
-        codeGenerator.println("    if (jj_rescan) {");
-        codeGenerator.println("      int i = 0; Token* tok = token;");
-        codeGenerator.println("      while (tok != nullptr && tok != jj_scanpos) { i++; tok = tok->next(); }");
-        codeGenerator.println("      if (tok != nullptr) jj_add_error_token(kind, i);");
+        ccb.println("  if (jj_rescan) {");
+        ccb.println("    int i = 0; Token* tok = token;");
+        ccb.println("    while (tok != nullptr && tok != jj_scanpos) {");
+        ccb.println("      i++;");
+        ccb.println("      tok = tok->next();");
+        ccb.println("    }");
+        ccb.println("    if (tok != nullptr) jj_add_error_token(kind, i);");
         if (Options.getDebugLookahead()) {
-          codeGenerator.println("    } else {");
-          codeGenerator.println("      trace_scan(jj_scanpos, kind);");
+          ccb.println("  } else {");
+          ccb.println("    trace_scan(jj_scanpos, kind);");
         }
-        codeGenerator.println("    }");
+        ccb.println("  }");
       } else if (Options.getDebugLookahead()) {
-        codeGenerator.println("    trace_scan(jj_scanpos, kind);");
+        ccb.println("  trace_scan(jj_scanpos, kind);");
       }
-      codeGenerator.println("    if (jj_scanpos->kind() != kind) return true;");
-      // codeGenerator.genCodeLine(" if (jj_la == 0 && jj_scanpos == jj_lastpos)
+      ccb.println("  if (jj_scanpos->kind() != kind) return true;");
+      // codeGen.genCodeLine(" if (jj_la == 0 && jj_scanpos == jj_lastpos)
       // throw jj_ls;");
-      codeGenerator.println("    if (jj_la == 0 && jj_scanpos == jj_lastpos) { return jj_done = true; }");
-      codeGenerator.println("    return false;");
-      codeGenerator.println("  }");
-      codeGenerator.println("");
+      ccb.println("  if (jj_la == 0 && jj_scanpos == jj_lastpos) { return jj_done = true; }");
+      ccb.println("  return false;");
+      ccb.println("}");
+      ccb.println();
     }
-    codeGenerator.println("");
-    codeGenerator.println("/** Get the next Token. */");
-    codeGenerator.generateMethodDefHeader("Token* ", context.globals().cu_name, "getNextToken()");
-    codeGenerator.println("{");
+    ccb.println();
+
+    ccb.println("/** Get the next Token. */");
+    ccb.generateMethodDefHeader("Token*", context.globals().cu_name, "getNextToken()");
+    ccb.println(" {");
     if (Options.getCacheTokens()) {
-      codeGenerator.println("    if ((token = jj_nt)->next() != nullptr) jj_nt = jj_nt->next();");
-      codeGenerator.println("    else jj_nt = jj_nt->next() = token_source->getNextToken();");
+      ccb.println("  if ((token = jj_nt)->next() != nullptr) jj_nt = jj_nt->next();");
+      ccb.println("  else jj_nt = jj_nt->next() = token_source->getNextToken();");
     } else {
-      codeGenerator.println("    if (token->next() != nullptr) token = token->next();");
-      codeGenerator.println("    else token = token->next() = token_source->getNextToken();");
-      codeGenerator.println("    jj_ntk = -1;");
+      ccb.println("  if (token->next() != nullptr) token = token->next();");
+      ccb.println("  else token = token->next() = token_source->getNextToken();");
+      ccb.println("  jj_ntk = -1;");
     }
     if (Options.getErrorReporting()) {
-      codeGenerator.println("    jj_gen++;");
+      ccb.println("  jj_gen++;");
     }
     if (Options.getDebugParser()) {
-      codeGenerator.println("      trace_token(token, \" (in getNextToken)\");");
+      ccb.println("  trace_token(token, \" (in getNextToken)\");");
     }
-    codeGenerator.println("    return token;");
-    codeGenerator.println("  }");
-    codeGenerator.println("");
-    codeGenerator.println("/** Get the specific Token. */");
-    codeGenerator.generateMethodDefHeader("Token* ", context.globals().cu_name, "getToken(int index)");
-    codeGenerator.println("{");
+    ccb.println("  return token;");
+    ccb.println("}");
+    ccb.println();
+
+    ccb.println("/** Get the specific Token. */");
+    ccb.generateMethodDefHeader("Token*", context.globals().cu_name, "getToken(int index)");
+    ccb.println(" {");
     if (context.globals().lookaheadNeeded) {
-      codeGenerator.println("    Token* t = jj_lookingAhead ? jj_scanpos : token;");
+      ccb.println("  Token* t = jj_lookingAhead ? jj_scanpos : token;");
     } else {
-      codeGenerator.println("    Token* t = token;");
+      ccb.println("  Token* t = token;");
     }
-    codeGenerator.println("    for (int i = 0; i < index; i++) {");
-    codeGenerator.println("      if (t->next() != nullptr) t = t->next();");
-    codeGenerator.println("      else t = t->next() = token_source->getNextToken();");
-    codeGenerator.println("    }");
-    codeGenerator.println("    return t;");
-    codeGenerator.println("  }");
-    codeGenerator.println("");
+    ccb.println("  for (int i = 0; i < index; i++) {");
+    ccb.println("    if (t->next() != nullptr) t = t->next();");
+    ccb.println("    else t = t->next() = token_source->getNextToken();");
+    ccb.println("  }");
+    ccb.println("  return t;");
+    ccb.println("}");
+    ccb.println();
+
     if (!Options.getCacheTokens()) {
-      codeGenerator.generateMethodDefHeader("int", context.globals().cu_name, "jj_ntk_f()");
-      codeGenerator.println("{");
+      ccb.generateMethodDefHeader("int", context.globals().cu_name, "jj_ntk_f()");
+      ccb.println(" {");
 
-      codeGenerator.println("    if ((jj_nt=token->next()) == nullptr)");
-      codeGenerator.println("      return (jj_ntk = (token->next()=token_source->getNextToken())->kind());");
-      codeGenerator.println("    else");
-      codeGenerator.println("      return (jj_ntk = jj_nt->kind());");
-      codeGenerator.println("  }");
-      codeGenerator.println("");
+      ccb.println("  if ((jj_nt=token->next()) == nullptr)");
+      ccb.println("    return (jj_ntk = (token->next() = token_source->getNextToken())->kind());");
+      ccb.println("  else");
+      ccb.println("    return (jj_ntk = jj_nt->kind());");
+      ccb.println("}");
+      ccb.println();
     }
 
-    codeGenerator.switchToIncludeFile();
-    codeGenerator.println("private:");
-    codeGenerator.println("  int jj_kind;");
+    ccb.switchToIncludeFile();
+    ccb.println("private:");
+    ccb.println("  int jj_kind;");
     if (Options.getErrorReporting()) {
-      codeGenerator.println("  int** jj_expentries;");
-      codeGenerator.println("  int*  jj_expentry;");
+      ccb.println("  int** jj_expentries;");
+      ccb.println("  int*  jj_expentry;");
+      ccb.println();
       if (context.globals().jj2index != 0) {
-        codeGenerator.switchToStaticsFile();
+        ccb.switchToStaticsFile();
         // For now we don't support ERROR_REPORTING in the C++ version.
-        // codeGenerator.genCodeLine(" static int *jj_lasttokens = new
+        // codeGen.genCodeLine(" static int *jj_lasttokens = new
         // int[100];");
-        // codeGenerator.genCodeLine(" static int jj_endpos;");
-        codeGenerator.println("");
+        // codeGen.genCodeLine(" static int jj_endpos;");
+        ccb.println();
 
-        codeGenerator.generateMethodDefHeader("  void", context.globals().cu_name, "jj_add_error_token(int kind, int pos)");
-        codeGenerator.println("  {");
+        ccb.generateMethodDefHeader(
+            "void", context.globals().cu_name, "jj_add_error_token(int kind, int pos)");
+        ccb.println(" {");
         // For now we don't support ERROR_REPORTING in the C++ version.
 
-        // codeGenerator.genCodeLine(" if (pos >= 100) return;");
-        // codeGenerator.genCodeLine(" if (pos == jj_endpos + 1) {");
-        // codeGenerator.genCodeLine(" jj_lasttokens[jj_endpos++] = kind;");
-        // codeGenerator.genCodeLine(" } else if (jj_endpos != 0) {");
-        // codeGenerator.genCodeLine(" jj_expentry = new int[jj_endpos];");
-        // codeGenerator.genCodeLine(" for (int i = 0; i < jj_endpos; i++) {");
-        // codeGenerator.genCodeLine(" jj_expentry[i] = jj_lasttokens[i];");
-        // codeGenerator.genCodeLine(" }");
-        // codeGenerator.genCodeLine(" jj_entries_loop: for (java.util.Iterator
+        // codeGen.genCodeLine(" if (pos >= 100) return;");
+        // codeGen.genCodeLine(" if (pos == jj_endpos + 1) {");
+        // codeGen.genCodeLine(" jj_lasttokens[jj_endpos++] = kind;");
+        // codeGen.genCodeLine(" } else if (jj_endpos != 0) {");
+        // codeGen.genCodeLine(" jj_expentry = new int[jj_endpos];");
+        // codeGen.genCodeLine(" for (int i = 0; i < jj_endpos; i++) {");
+        // codeGen.genCodeLine(" jj_expentry[i] = jj_lasttokens[i];");
+        // codeGen.genCodeLine(" }");
+        // codeGen.genCodeLine(" jj_entries_loop: for (java.util.Iterator
         // it = jj_expentries.iterator(); it.hasNext();) {");
-        // codeGenerator.genCodeLine(" int[] oldentry = (int[])(it->next());");
-        // codeGenerator.genCodeLine(" if (oldentry.length ==
+        // codeGen.genCodeLine(" int[] oldentry = (int[])(it->next());");
+        // codeGen.genCodeLine(" if (oldentry.length ==
         // jj_expentry.length) {");
-        // codeGenerator.genCodeLine(" for (int i = 0; i < jj_expentry.length;
+        // codeGen.genCodeLine(" for (int i = 0; i < jj_expentry.length;
         // i++) {");
-        // codeGenerator.genCodeLine(" if (oldentry[i] != jj_expentry[i]) {");
-        // codeGenerator.genCodeLine(" continue jj_entries_loop;");
-        // codeGenerator.genCodeLine(" }");
-        // codeGenerator.genCodeLine(" }");
-        // codeGenerator.genCodeLine(" jj_expentries.add(jj_expentry);");
-        // codeGenerator.genCodeLine(" break jj_entries_loop;");
-        // codeGenerator.genCodeLine(" }");
-        // codeGenerator.genCodeLine(" }");
-        // codeGenerator.genCodeLine(" if (pos != 0) jj_lasttokens[(jj_endpos =
+        // codeGen.genCodeLine(" if (oldentry[i] != jj_expentry[i]) {");
+        // codeGen.genCodeLine(" continue jj_entries_loop;");
+        // codeGen.genCodeLine(" }");
+        // codeGen.genCodeLine(" }");
+        // codeGen.genCodeLine(" jj_expentries.add(jj_expentry);");
+        // codeGen.genCodeLine(" break jj_entries_loop;");
+        // codeGen.genCodeLine(" }");
+        // codeGen.genCodeLine(" }");
+        // codeGen.genCodeLine(" if (pos != 0) jj_lasttokens[(jj_endpos =
         // pos) - 1] = kind;");
-        // codeGenerator.genCodeLine(" }");
-        codeGenerator.println("  }");
+        // codeGen.genCodeLine(" }");
+        ccb.println("}");
+        ccb.println();
       }
-      codeGenerator.println("");
 
-      codeGenerator.switchToIncludeFile();
-      codeGenerator.println("protected:");
-      codeGenerator.println("  /** Generate ParseException. */");
-      codeGenerator.generateMethodDefHeader("  virtual void ", context.globals().cu_name, "parseError()");
-      codeGenerator.println("   {");
+      ccb.switchToIncludeFile();
+      ccb.println("protected:");
+      ccb.println("  /** Generate ParseException. */");
+      ccb.generateMethodDefHeader("virtual void", context.globals().cu_name, "parseError()");
+      ccb.println(" {");
       if (Options.getErrorReporting()) {
-          codeGenerator.println(
-                  "      JJERR << JJWIDE(Parse error at : ) << token->beginLine() << JJWIDE(:) << token->beginColumn() << JJWIDE( after token: ) << addUnicodeEscapes(token->image()) << JJWIDE( encountered: ) << addUnicodeEscapes(getToken(1)->image()) << std::endl;");
+        ccb.println(
+            "  JJERR << JJWIDE(Parse error at : ) << token->beginLine() << JJWIDE(:) << token->beginColumn() << JJWIDE( after token: ) << addUnicodeEscapes(token->image()) << JJWIDE( encountered: ) << addUnicodeEscapes(getToken(1)->image()) << std::endl;");
       }
-      codeGenerator.println("   }");
+      ccb.println("}");
       /*
        * generateMethodDefHeader("ParseException", cu_name,
-       * "generateParseException()"); codeGenerator.genCodeLine("   {");
-       * //codeGenerator.genCodeLine("    jj_expentries.clear();");
-       * //codeGenerator.genCodeLine("    bool[] la1tokens = new boolean[" +
+       * "generateParseException()"); codeGen.genCodeLine("   {");
+       * //codeGen.genCodeLine("    jj_expentries.clear();");
+       * //codeGen.genCodeLine("    bool[] la1tokens = new boolean[" +
        * tokenCount + "];");
-       * //codeGenerator.genCodeLine("    if (jj_kind >= 0) {");
-       * //codeGenerator.genCodeLine("      la1tokens[jj_kind] = true;");
-       * //codeGenerator.genCodeLine("      jj_kind = -1;");
-       * //codeGenerator.genCodeLine("    }");
-       * //codeGenerator.genCodeLine("    for (int i = 0; i < " + maskindex +
+       * //codeGen.genCodeLine("    if (jj_kind >= 0) {");
+       * //codeGen.genCodeLine("      la1tokens[jj_kind] = true;");
+       * //codeGen.genCodeLine("      jj_kind = -1;");
+       * //codeGen.genCodeLine("    }");
+       * //codeGen.genCodeLine("    for (int i = 0; i < " + maskindex +
        * "; i++) {");
-       * //codeGenerator.genCodeLine("      if (jj_la1[i] == jj_gen) {");
-       * //codeGenerator.genCodeLine("        for (int j = 0; j < 32; j++) {");
+       * //codeGen.genCodeLine("      if (jj_la1[i] == jj_gen) {");
+       * //codeGen.genCodeLine("        for (int j = 0; j < 32; j++) {");
        * //for (int i = 0; i < (tokenCount-1)/32 + 1; i++) {
-       * //codeGenerator.genCodeLine("          if ((jj_la1_" + i +
+       * //codeGen.genCodeLine("          if ((jj_la1_" + i +
        * "[i] & (1<<j)) != 0) {"); //genCode("            la1tokens["); //if (i
        * != 0) { //genCode((32*i) + "+"); //}
-       * //codeGenerator.genCodeLine("j] = true;");
-       * //codeGenerator.genCodeLine("          }"); //}
-       * //codeGenerator.genCodeLine("        }");
-       * //codeGenerator.genCodeLine("      }");
-       * //codeGenerator.genCodeLine("    }");
-       * //codeGenerator.genCodeLine("    for (int i = 0; i < " + tokenCount +
-       * "; i++) {"); //codeGenerator.genCodeLine("      if (la1tokens[i]) {");
-       * //codeGenerator.genCodeLine("        jj_expentry = new int[1];");
-       * //codeGenerator.genCodeLine("        jj_expentry[0] = i;");
-       * //codeGenerator.genCodeLine("        jj_expentries.add(jj_expentry);");
-       * //codeGenerator.genCodeLine("      }");
-       * //codeGenerator.genCodeLine("    }"); //if (jj2index != 0) {
-       * //codeGenerator.genCodeLine("    jj_endpos = 0;");
-       * //codeGenerator.genCodeLine("    jj_rescan_token();");
-       * //codeGenerator.genCodeLine("    jj_add_error_token(0, 0);"); //}
-       * //codeGenerator.genCodeLine("    int exptokseq[][1] = new int[1];");
-       * //codeGenerator.
+       * //codeGen.genCodeLine("j] = true;");
+       * //codeGen.genCodeLine("          }"); //}
+       * //codeGen.genCodeLine("        }");
+       * //codeGen.genCodeLine("      }");
+       * //codeGen.genCodeLine("    }");
+       * //codeGen.genCodeLine("    for (int i = 0; i < " + tokenCount +
+       * "; i++) {"); //codeGen.genCodeLine("      if (la1tokens[i]) {");
+       * //codeGen.genCodeLine("        jj_expentry = new int[1];");
+       * //codeGen.genCodeLine("        jj_expentry[0] = i;");
+       * //codeGen.genCodeLine("        jj_expentries.add(jj_expentry);");
+       * //codeGen.genCodeLine("      }");
+       * //codeGen.genCodeLine("    }"); //if (jj2index != 0) {
+       * //codeGen.genCodeLine("    jj_endpos = 0;");
+       * //codeGen.genCodeLine("    jj_rescan_token();");
+       * //codeGen.genCodeLine("    jj_add_error_token(0, 0);"); //}
+       * //codeGen.genCodeLine("    int exptokseq[][1] = new int[1];");
+       * //codeGen.
        * genCodeLine("    for (int i = 0; i < jj_expentries.size(); i++) {");
-       * //if (!Options.getGenerateGenerics()) //codeGenerator.
+       * //if (!Options.getGenerateGenerics()) //codeGen.
        * genCodeLine("      exptokseq[i] = (int[])jj_expentries.get(i);");
-       * //else //codeGenerator.
+       * //else //codeGen.
        * genCodeLine("      exptokseq[i] = jj_expentries.get(i);");
-       * //codeGenerator.genCodeLine("    }");
-       * codeGenerator.genCodeLine("    return new _ParseException();");//token,
-       * nullptr, tokenImages);"); codeGenerator.genCodeLine(" }");
+       * //codeGen.genCodeLine("    }");
+       * codeGen.genCodeLine("    return new _ParseException();");//token,
+       * nullptr, tokenImages);"); codeGen.genCodeLine(" }");
        */
     } else {
-      codeGenerator.println("protected:");
-      codeGenerator.println("  /** Generate ParseException. */");
-      codeGenerator.generateMethodDefHeader("virtual void ", context.globals().cu_name, "parseError()");
-      codeGenerator.println("   {");
+      ccb.println("protected:");
+      ccb.println("  /** Generate ParseException. */");
+      ccb.generateMethodDefHeader("virtual void", context.globals().cu_name, "parseError()");
+      ccb.println(" {");
       if (Options.getErrorReporting()) {
-          codeGenerator.println(
-                  "      JJERR << "
-                  + "JJWIDE(Parse error at : ) << token->beginLine() << JJWIDE(:) "
-                  + "<< token->beginColumn() << JJWIDE( after token: ) << addUnicodeEscapes(token->image())"
-                  + " << JJWIDE( encountered: ) << addUnicodeEscapes(getToken(1)->image()) << std::endl;");
+        ccb.println(
+            "  JJERR << "
+                + "JJWIDE(Parse error at : ) << token->beginLine() << JJWIDE(:) "
+                + "<< token->beginColumn() << JJWIDE( after token: ) << addUnicodeEscapes(token->image())"
+                + " << JJWIDE( encountered: ) << addUnicodeEscapes(getToken(1)->image()) << std::endl;");
       }
-      codeGenerator.println("   }");
+      ccb.println("}");
       /*
        * generateMethodDefHeader("ParseException", cu_name,
-       * "generateParseException()"); codeGenerator.genCodeLine("   {");
-       * codeGenerator.genCodeLine("    Token* errortok = token->next();"); if
-       * (Options.getKeepLineColumn()) codeGenerator.
+       * "generateParseException()"); codeGen.genCodeLine("   {");
+       * codeGen.genCodeLine("    Token* errortok = token->next();"); if
+       * (Options.getKeepLineColumn()) codeGen.
        * genCodeLine("    int line = errortok.beginLine, column = errortok.beginColumn;"
-       * ); codeGenerator.
+       * ); codeGen.
        * genCodeLine("    JJString mess = (errortok->kind() == 0) ? tokenImages[0] : errortok->image();"
        * ); if (Options.getKeepLineColumn())
-       * codeGenerator.genCodeLine("    return new _ParseException();");// +
+       * codeGen.genCodeLine("    return new _ParseException();");// +
        * //"\"Parse error at line \" + line + \", column \" + column + \".  " +
        * //"Encountered: \" + mess);"); else
-       * codeGenerator.genCodeLine("    return new _ParseException();");//
+       * codeGen.genCodeLine("    return new _ParseException();");//
        * \"Parse error at <unknown location>.  " +
-       * //"Encountered: \" + mess);"); codeGenerator.genCodeLine("  }");
+       * //"Encountered: \" + mess);"); codeGen.genCodeLine("  }");
        */
     }
-    codeGenerator.println("");
+    ccb.println();
 
-    codeGenerator.switchToIncludeFile();
-    codeGenerator.println("private:");
-    codeGenerator.println("  int  indent; // trace indentation");
-    codeGenerator.println("  bool trace = " + Options.getDebugParser() + ";");
-    codeGenerator.println("  bool trace_la = " + Options.getDebugLookahead() + ";" );
-    codeGenerator.println("");
-    codeGenerator.println("public:");
-    codeGenerator.generateMethodDefHeader("  bool", context.globals().cu_name, "trace_enabled()");
-    codeGenerator.println("  {");
-    codeGenerator.println("    return trace;");
-    codeGenerator.println("  }");
-    codeGenerator.println("");
-    codeGenerator.generateMethodDefHeader("  bool", context.globals().cu_name, "trace_la_enabled()");
-    codeGenerator.println("  {");
-    codeGenerator.println("    return trace_la;");
-    codeGenerator.println("  }");
-    codeGenerator.println("");
+    ccb.switchToIncludeFile();
+    ccb.println("private:");
+    ccb.println("  int  indent; // trace indentation");
+    ccb.println("  bool trace = " + Options.getDebugParser() + ";");
+    ccb.println("  bool trace_la = " + Options.getDebugLookahead() + ";");
+    ccb.println();
+    ccb.println("public:");
+    ccb.generateMethodDefHeader("bool", context.globals().cu_name, "trace_enabled()");
+    ccb.println("  {");
+    ccb.println("  return trace;");
+    ccb.println("}");
+    ccb.println();
+    ccb.generateMethodDefHeader("bool", context.globals().cu_name, "trace_la_enabled()");
+    ccb.println(" {");
+    ccb.println("  return trace_la;");
+    ccb.println("}");
+    ccb.println();
     if (Options.getDebugParser()) {
-      codeGenerator.switchToIncludeFile();
-      codeGenerator.generateMethodDefHeader("  void", context.globals().cu_name, "enable_tracing()");
-      codeGenerator.println("{");
-      codeGenerator.println("    trace = true;");
-      codeGenerator.println("}");
-      codeGenerator.println("");
+      ccb.switchToIncludeFile();
+      ccb.generateMethodDefHeader("void", context.globals().cu_name, "enable_tracing()");
+      ccb.println(" {");
+      ccb.println("  trace = true;");
+      ccb.println("}");
+      ccb.println();
 
-      codeGenerator.switchToIncludeFile();
-      codeGenerator.generateMethodDefHeader("  void", context.globals().cu_name, "disable_tracing()");
-      codeGenerator.println("{");
-      codeGenerator.println("    trace = false;");
-      codeGenerator.println("}");
-      codeGenerator.println("");
+      ccb.switchToIncludeFile();
+      ccb.generateMethodDefHeader("void", context.globals().cu_name, "disable_tracing()");
+      ccb.println(" {");
+      ccb.println("  trace = false;");
+      ccb.println("}");
+      ccb.println();
 
-      codeGenerator.switchToIncludeFile();
-      codeGenerator.generateMethodDefHeader("  void", context.globals().cu_name, "trace_call(const char *s)");
-      codeGenerator.println("  {");
-      codeGenerator.println("    if (trace_enabled()) {");
-      codeGenerator.println("      for (int no = 0; no < indent; no++) { JJLOG << JJSPACE; }");
-      codeGenerator.println("      JJLOG << \"Call:   \" << s << std::endl;");
-      codeGenerator.println("    }");
-      codeGenerator.println("    indent += 2;");
-      codeGenerator.println("  }");
-      codeGenerator.println("");
+      ccb.switchToIncludeFile();
+      ccb.generateMethodDefHeader("void", context.globals().cu_name, "trace_call(const char *s)");
+      ccb.println(" {");
+      ccb.println("  if (trace_enabled()) {");
+      ccb.println("    for (int no = 0; no < indent; no++) { JJLOG << JJSPACE; }");
+      ccb.println("    JJLOG << \"Call:   \" << s << std::endl;");
+      ccb.println("  }");
+      ccb.println("  indent += 2;");
+      ccb.println("}");
+      ccb.println();
 
-      codeGenerator.switchToIncludeFile();
-      codeGenerator.generateMethodDefHeader("  void", context.globals().cu_name, "trace_return(const char *s)");
-      codeGenerator.println("  {");
-      codeGenerator.println("    indent -= 2;");
-      codeGenerator.println("    if (trace_enabled()) {");
-      codeGenerator.println("      for (int no = 0; no < indent; no++) { JJLOG << JJSPACE; }");
-      codeGenerator.println("      JJLOG << \"Return: \" << s << std::endl;");
-      codeGenerator.println("    }");
-      codeGenerator.println("  }");
-      codeGenerator.println("");
+      ccb.switchToIncludeFile();
+      ccb.generateMethodDefHeader("void", context.globals().cu_name, "trace_return(const char *s)");
+      ccb.println(" {");
+      ccb.println("  indent -= 2;");
+      ccb.println("  if (trace_enabled()) {");
+      ccb.println("    for (int no = 0; no < indent; no++) { JJLOG << JJSPACE; }");
+      ccb.println("    JJLOG << \"Return: \" << s << std::endl;");
+      ccb.println("  }");
+      ccb.println("}");
+      ccb.println();
 
-      codeGenerator.switchToIncludeFile();
-      codeGenerator.generateMethodDefHeader("  void", context.globals().cu_name, "trace_token(const Token* token, const char* where)");
-      codeGenerator.println("  {");
-      codeGenerator.println("    if (trace_enabled()) {");
-      codeGenerator.println("      for (int no = 0; no < indent; no++) { JJLOG << JJSPACE; }");
-      codeGenerator.print("      JJLOG << JJWIDE(Consumed token: ) << addUnicodeEscapes(");
-      codeGenerator.print(getTokenLabels());
-      codeGenerator.println("[token->kind()]) << JJCOMMA << JJSPACE << JJQUOTE << addUnicodeEscapes(token->image()) << JJQUOTE;");
-      codeGenerator.println(
-              "      JJLOG << JJSPACE << JJWIDE(at) << JJSPACE << token->beginLine() << JJWIDE(:) << token->beginColumn() << *where << std::endl;");
-      codeGenerator.println("    }");
-      codeGenerator.println("  }");
-      codeGenerator.println("");
+      ccb.switchToIncludeFile();
+      ccb.generateMethodDefHeader(
+          "void", context.globals().cu_name, "trace_token(const Token* token, const char* where)");
+      ccb.println(" {");
+      ccb.println("  if (trace_enabled()) {");
+      ccb.println("    for (int no = 0; no < indent; no++) { JJLOG << JJSPACE; }");
+      ccb.println("    JJLOG << JJWIDE(Consumed token: <) << token->kind() << JJCOMMA << JJSPACE");
+      ccb.println(
+          "          << JJDBQUOTE << addUnicodeEscapes("
+              + getTokenImages()
+              + "[token->kind()]) << JJDBQUOTE;");
+      ccb.println(
+          "    if (token->kind() != 0 && "
+              + getTokenImages()
+              + "[token->kind()] != token->image()) {");
+      ccb.println(
+          "       JJLOG << JJSPACE << JJDBQUOTE << addUnicodeEscapes(token->image()) << JJDBQUOTE;");
+      ccb.println("    }");
+      ccb.println("    JJLOG << JJWIDE(> at) << JJSPACE << token->beginLine() << JJWIDE(:)");
+      ccb.println("          << token->beginColumn() << *where << std::endl;");
+      ccb.println("  }");
+      ccb.println("}");
+      ccb.println();
 
-      codeGenerator.switchToIncludeFile();
-      codeGenerator.generateMethodDefHeader("  void", context.globals().cu_name, "trace_scan(const Token* token, int t2)");
-      codeGenerator.println("  {");
-      codeGenerator.println("    if (trace_la_enabled()) {");
-      codeGenerator.println("      for (int no = 0; no < indent; no++) { JJLOG << JJSPACE; }");
-      codeGenerator.print("      JJLOG << JJWIDE(Visited  token: ) << addUnicodeEscapes(");
-      codeGenerator.print(getTokenLabels());
-      codeGenerator.println("[token->kind()]) << JJCOMMA << JJSPACE << JJQUOTE << addUnicodeEscapes(token->image()) << JJQUOTE;");
-      codeGenerator.println(
-          "      JJLOG << JJSPACE << JJWIDE(at) << JJSPACE << token->beginLine() << JJWIDE(:) << token->beginColumn() << JJCOMMA << JJSPACE << JJWIDE(Expected token: ) << addUnicodeEscapes("
-              + getTokenLabels() + "[t2]) << std::endl;");
-      codeGenerator.println("    }");
-      codeGenerator.println("  }");
-      codeGenerator.println("");
-      
+      ccb.switchToIncludeFile();
+      ccb.generateMethodDefHeader(
+          "void", context.globals().cu_name, "trace_scan(const Token* token, int t2)");
+      ccb.println(" {");
+      ccb.println("  if (trace_la_enabled()) {");
+      ccb.println("    for (int no = 0; no < indent; no++) { JJLOG << JJSPACE; }");
+      ccb.println("    JJLOG << JJWIDE(Visited  token: <) << token->kind() << JJCOMMA << JJSPACE");
+      ccb.println(
+          "          << JJDBQUOTE << addUnicodeEscapes("
+              + getTokenImages()
+              + "[token->kind()]) << JJDBQUOTE;");
+      ccb.println(
+          "    if (token->kind() != 0 && "
+              + getTokenImages()
+              + "[token->kind()] != token->image()) {");
+      ccb.println(
+          "       JJLOG << JJSPACE << JJDBQUOTE << addUnicodeEscapes(token->image()) << JJDBQUOTE;");
+      ccb.println("    }");
+      ccb.println("    JJLOG << JJWIDE(> at) << JJSPACE << token->beginLine() << JJWIDE(:)");
+      ccb.print("          << token->beginColumn() << JJWIDE(; Expected token: <)");
+      ccb.println(" << t2 << JJCOMMA << JJSPACE");
+      ccb.println(
+          "          << addUnicodeEscapes("
+              + getTokenLabels()
+              + "[t2]) << JJWIDE(>) << std::endl;");
+      ccb.println("  }");
+      ccb.println("}");
+      ccb.println();
+
     } else {
-        codeGenerator.switchToIncludeFile();
-        codeGenerator.generateMethodDefHeader("  void", context.globals().cu_name, "enable_tracing()");
-        codeGenerator.println("  {");
-        codeGenerator.println("  }");
-        codeGenerator.switchToIncludeFile();
-        codeGenerator.generateMethodDefHeader("  void", context.globals().cu_name, "disable_tracing()");
-        codeGenerator.println("  {");
-        codeGenerator.println("  }");
-        codeGenerator.println("");
-      }
+      ccb.switchToIncludeFile();
+      ccb.generateMethodDefHeader("void", context.globals().cu_name, "enable_tracing()");
+      ccb.println(" {");
+      ccb.println("}");
+      ccb.switchToIncludeFile();
+      ccb.generateMethodDefHeader("void", context.globals().cu_name, "disable_tracing()");
+      ccb.println(" {");
+      ccb.println("}");
+      ccb.println();
+    }
 
     if (Options.getDebugLookahead()) {
-        codeGenerator.switchToIncludeFile();
-        codeGenerator.generateMethodDefHeader("  void", context.globals().cu_name, "enable_la_tracing()");
-        codeGenerator.println("{");
-        codeGenerator.println("    trace_la = true;");
-        codeGenerator.println("}");
-        codeGenerator.println("");
+      ccb.switchToIncludeFile();
+      ccb.generateMethodDefHeader("void", context.globals().cu_name, "enable_la_tracing()");
+      ccb.println(" {");
+      ccb.println("  trace_la = true;");
+      ccb.println("}");
+      ccb.println();
 
-        codeGenerator.switchToIncludeFile();
-        codeGenerator.generateMethodDefHeader("  void", context.globals().cu_name, "disable_la_tracing()");
-        codeGenerator.println("{");
-        codeGenerator.println("    trace_la = false;");
-        codeGenerator.println("}");
-        codeGenerator.println("");
+      ccb.switchToIncludeFile();
+      ccb.generateMethodDefHeader("void", context.globals().cu_name, "disable_la_tracing()");
+      ccb.println(" {");
+      ccb.println("  trace_la = false;");
+      ccb.println("}");
+      ccb.println();
 
-      codeGenerator.switchToIncludeFile();
-      codeGenerator.generateMethodDefHeader("  void", context.globals().cu_name, "trace_la_call(const char *s)");
-      codeGenerator.println("  {");
-      codeGenerator.println("    if (trace_la_enabled()) {");
-      codeGenerator.println("      for (int no = 0; no < indent; no++) { JJLOG << JJSPACE; }");
-      codeGenerator.println("      JJLOG << \"Call:   \" << s << std::endl;");
-      codeGenerator.println("    }");
-      codeGenerator.println("    indent += 2;");
-      codeGenerator.println("  }");
-      codeGenerator.println("");
+      ccb.switchToIncludeFile();
+      ccb.generateMethodDefHeader(
+          "void", context.globals().cu_name, "trace_la_call(const char *s)");
+      ccb.println(" {");
+      ccb.println("  if (trace_la_enabled()) {");
+      ccb.println("    for (int no = 0; no < indent; no++) { JJLOG << JJSPACE; }");
+      ccb.println("    JJLOG << \"Call:   \" << s << std::endl;");
+      ccb.println("  }");
+      ccb.println("  indent += 2;");
+      ccb.println("}");
+      ccb.println();
 
-      codeGenerator.switchToIncludeFile();
-      codeGenerator.generateMethodDefHeader("  void", context.globals().cu_name, "trace_la_return(const char *s)");
-      codeGenerator.println("  {");
-      codeGenerator.println("    indent -= 2;");
-      codeGenerator.println("    if (trace_la_enabled()) {");
-      codeGenerator.println("      for (int no = 0; no < indent; no++) { JJLOG << JJSPACE; }");
-      codeGenerator.println("      JJLOG << \"Return: \" << s << std::endl;");
-      codeGenerator.println("    }");
-      codeGenerator.println("  }");
-      codeGenerator.println("");
+      ccb.switchToIncludeFile();
+      ccb.generateMethodDefHeader(
+          "void", context.globals().cu_name, "trace_la_return(const char *s)");
+      ccb.println(" {");
+      ccb.println("  indent -= 2;");
+      ccb.println("  if (trace_la_enabled()) {");
+      ccb.println("    for (int no = 0; no < indent; no++) { JJLOG << JJSPACE; }");
+      ccb.println("    JJLOG << \"Return: \" << s << std::endl;");
+      ccb.println("  }");
+      ccb.println("}");
+      ccb.println();
     } else {
-        codeGenerator.switchToIncludeFile();
-        codeGenerator.generateMethodDefHeader("  void", context.globals().cu_name, "enable_la_tracing()");
-        codeGenerator.println("  {");
-        codeGenerator.println("  }");
-        codeGenerator.switchToIncludeFile();
-        codeGenerator.generateMethodDefHeader("  void", context.globals().cu_name, "disable_la_tracing()");
-        codeGenerator.println("  {");
-        codeGenerator.println("  }");
-        codeGenerator.println("");
-      }
+      ccb.switchToIncludeFile();
+      ccb.generateMethodDefHeader("void", context.globals().cu_name, "enable_la_tracing()");
+      ccb.println(" {");
+      ccb.println("}");
+      ccb.switchToIncludeFile();
+      ccb.generateMethodDefHeader("void", context.globals().cu_name, "disable_la_tracing()");
+      ccb.println(" {");
+      ccb.println("}");
+      ccb.println();
+    }
 
     if ((context.globals().jj2index != 0) && Options.getErrorReporting()) {
-      codeGenerator.generateMethodDefHeader("  void", context.globals().cu_name, "jj_rescan_token()");
-      codeGenerator.println("{");
-      codeGenerator.println("    jj_rescan = true;");
-      codeGenerator.println("    for (int i = 0; i < " + context.globals().jj2index + "; i++) {");
-      // codeGenerator.genCodeLine(" try {");
-      codeGenerator.println("      JJCalls *p = &jj_2_rtns[i];");
-      codeGenerator.println("      do {");
-      codeGenerator.println("        if (p->gen > jj_gen) {");
-      codeGenerator.println("          jj_la = p->arg; jj_lastpos = jj_scanpos = p->first;");
-      codeGenerator.println("          switch (i) {");
+      ccb.generateMethodDefHeader("void", context.globals().cu_name, "jj_rescan_token()");
+      ccb.println(" {");
+      ccb.println("  jj_rescan = true;");
+      ccb.println("  for (int i = 0; i < " + context.globals().jj2index + "; i++) {");
+      // codeGen.genCodeLine(" try {");
+      ccb.println("    JJCalls *p = &jj_2_rtns[i];");
+      ccb.println("    do {");
+      ccb.println("      if (p->gen > jj_gen) {");
+      ccb.println("        jj_la = p->arg;");
+      ccb.println("        jj_lastpos = jj_scanpos = p->first;");
+      ccb.println("        switch (i) {");
       for (int i = 0; i < context.globals().jj2index; i++) {
-        codeGenerator.println("            case " + i + ": jj_3_" + (i + 1) + "(); break;");
+        ccb.println("          case " + i + ":");
+        ccb.println("            jj_3_" + (i + 1) + "();");
+        ccb.println("            break;");
       }
-      codeGenerator.println("          }");
-      codeGenerator.println("        }");
-      codeGenerator.println("        p = p->next;");
-      codeGenerator.println("      } while (p != nullptr);");
-      // codeGenerator.genCodeLine(" } catch(LookaheadSuccess ls) { }");
-      codeGenerator.println("    }");
-      codeGenerator.println("    jj_rescan = false;");
-      codeGenerator.println("  }");
-      codeGenerator.println("");
+      ccb.println("        }");
+      ccb.println("      }");
+      ccb.println("      p = p->next;");
+      ccb.println("    } while (p != nullptr);");
+      // codeGen.genCodeLine(" } catch(LookaheadSuccess ls) { }");
+      ccb.println("  }");
+      ccb.println("  jj_rescan = false;");
+      ccb.println("}");
+      ccb.println();
 
-      codeGenerator.generateMethodDefHeader("  void", context.globals().cu_name, "jj_save(int index, int xla)");
-      codeGenerator.println("{");
-      codeGenerator.println("    JJCalls *p = &jj_2_rtns[index];");
-      codeGenerator.println("    while (p->gen > jj_gen) {");
-      codeGenerator.println("      if (p->next == nullptr) { p = p->next = new JJCalls(); break; }");
-      codeGenerator.println("      p = p->next;");
-      codeGenerator.println("    }");
-      codeGenerator.println("    p->gen = jj_gen + xla - jj_la; p->first = token; p->arg = xla;");
-      codeGenerator.println("  }");
-      codeGenerator.println("");
+      ccb.generateMethodDefHeader("void", context.globals().cu_name, "jj_save(int index, int xla)");
+      ccb.println(" {");
+      ccb.println("  JJCalls *p = &jj_2_rtns[index];");
+      ccb.println("  while (p->gen > jj_gen) {");
+      ccb.println("    if (p->next == nullptr) {");
+      ccb.println("      p = p->next = new JJCalls();");
+      ccb.println("      break;");
+      ccb.println("    }");
+      ccb.println("    p = p->next;");
+      ccb.println("  }");
+      ccb.println("  p->gen = jj_gen + xla - jj_la;");
+      ccb.println("  p->first = token;");
+      ccb.println("  p->arg = xla;");
+      ccb.println("}");
+      ccb.println();
     }
 
     if (context.globals().cu_from_insertion_point_2.size() != 0) {
       Token t = null;
-      codeGenerator.printTokenSetup((context.globals().cu_from_insertion_point_2.get(0)));
-      for (Iterator<Token> it = context.globals().cu_from_insertion_point_2.iterator(); it.hasNext();) {
+      ccb.printTokenSetup((context.globals().cu_from_insertion_point_2.get(0)));
+      for (final Iterator<Token> it = context.globals().cu_from_insertion_point_2.iterator();
+          it.hasNext(); ) {
         t = it.next();
-        codeGenerator.printToken(t);
+        ccb.printToken(t);
       }
-      codeGenerator.printTrailingComments(t);
+      ccb.printTrailingComments(t);
+      ccb.println();
     }
-    codeGenerator.println("");
 
     // in the include file close the class signature
-    codeGenerator.switchToIncludeFile();
+    ccb.switchToIncludeFile();
 
     // copy other stuff
     Token t1 = context.globals().otherLanguageDeclTokenBeg;
-    Token t2 = context.globals().otherLanguageDeclTokenEnd;
+    final Token t2 = context.globals().otherLanguageDeclTokenEnd;
     while (t1 != t2) {
-      codeGenerator.printToken(t1);
+      ccb.printToken(t1);
       t1 = t1.next;
     }
-    codeGenerator.println("\n");
-    if (context.globals().jjtreeGenerated) {
-      codeGenerator.println("  JJT" + context.globals().cu_name + "State jjtree;");
-    }
-    codeGenerator.println("private:");
-    codeGenerator.println("  bool jj_done;");
 
-    codeGenerator.println("};");
+    if (context.globals().jjtreeGenerated) {
+      ccb.println("  JJT" + context.globals().cu_name + "State jjtree;");
+      ccb.println();
+    }
+
+    ccb.println("private:");
+    ccb.println("  bool jj_done;");
+
+    ccb.println();
+    ccb.println("};");
   }
 
-@Override
-  public void finish(CodeGeneratorSettings settings, ParserData parserData) {
-    if (Options.stringValue(Options.USEROPTION__CPP_NAMESPACE).length() > 0) {
-      codeGenerator.println(Options.stringValue("NAMESPACE_CLOSE"));
-      codeGenerator.println("#endif");
-      codeGenerator.switchToMainFile();
-      codeGenerator.println(Options.stringValue("NAMESPACE_CLOSE"));
+  void printInclude(final String userInclude) {
+    if (userInclude != null && userInclude.length() > 0) {
+      if (userInclude.charAt(0) == '<') {
+        ccb.println("#include " + userInclude + " // user defined option");
+      } else {
+        ccb.println("#include \"" + userInclude + "\" // user defined option");
+      }
+    }
+  }
+
+  @Override
+  public void finish(final CodeGeneratorSettings settings, final ParserData parserData) {
+    if (Options.stringValue(Options.UO__NAMESPACE).length() > 0) {
+      ccb.println(Options.stringValue("NAMESPACE_CLOSE"));
+      ccb.println("#endif");
+      ccb.switchToMainFile();
+      ccb.println(Options.stringValue("NAMESPACE_CLOSE"));
     } else {
-        codeGenerator.println("#endif");
+      ccb.println("#endif");
     }
 
     try {
-      codeGenerator.close();
-    } catch (IOException e) {
+      ccb.close();
+    } catch (final IOException e) {
       throw new Error(e);
     }
   }
 
-  private int     gensymindex = 0;
-  private int     indentamt;
-  private boolean jj2LA;
-
-
   /**
-   * These lists are used to maintain expansions for which code generation in
-   * phase 2 and phase 3 is required. Whenever a call is generated to a phase 2
-   * or phase 3 routine, a corresponding entry is added here if it has not
-   * already been added. The phase 3 routines have been optimized in version
-   * 0.7pre2. Essentially only those methods (and only those portions of these
-   * methods) are generated that are required. The lookahead amount is used to
-   * determine this. This change requires the use of a hash table because it is
-   * now possible for the same phase 3 routine to be requested multiple times
-   * with different lookaheads. The hash table provides a easily searchable
-   * capability to determine the previous requests. The phase 3 routines now are
-   * performed in a two step process - the first step gathers the requests
-   * (replacing requests with lower lookaheads with those requiring larger
-   * lookaheads). The second step then generates these methods. This
-   * optimization and the hashtable makes it look like we do not need the flag
-   * "phase3done" any more. But this has not been removed yet.
+   * Returns true if there is a JAVACODE production that the argument expansion may directly expand
+   * to (without consuming tokens or encountering lookahead).
    */
-  private final List<Lookahead>                  phase2list  = new ArrayList<>();
-  private final List<Phase3Data>                 phase3list  = new ArrayList<>();
-  private final Hashtable<Expansion, Phase3Data> phase3table = new Hashtable<>();
-
-  /**
-   * The phase 1 routines generates their output into String's and dumps these
-   * String's once for each method. These String's contain the special
-   * characters '\u0001' to indicate a positive indent, and '\u0002' to indicate
-   * a negative indent. '\n' is used to indicate a line terminator. The
-   * characters '\u0003' and '\u0004' are used to delineate portions of text
-   * where '\n's should not be followed by an indentation.
-   */
-
-  /**
-   * Returns true if there is a JAVACODE production that the argument expansion
-   * may directly expand to (without consuming tokens or encountering
-   * lookahead).
-   */
-  private boolean javaCodeCheck(Expansion exp) {
+  private boolean javaCodeCheck(final Expansion exp) {
     if (exp instanceof RegularExpression) {
       return false;
     } else if (exp instanceof NonTerminal) {
-      NormalProduction prod = ((NonTerminal) exp).getProd();
+      final NormalProduction prod = ((NonTerminal) exp).getProd();
       if (prod instanceof CodeProduction) {
         return true;
       } else {
         return javaCodeCheck(prod.getExpansion());
       }
     } else if (exp instanceof Choice) {
-      Choice ch = (Choice) exp;
-      for (Expansion element : ch.getChoices()) {
+      final Choice ch = (Choice) exp;
+      for (final Expansion element : ch.getChoices()) {
         if (javaCodeCheck(element)) {
           return true;
         }
       }
       return false;
     } else if (exp instanceof Sequence) {
-      Sequence seq = (Sequence) exp;
+      final Sequence seq = (Sequence) exp;
       for (int i = 0; i < seq.units.size(); i++) {
-        Expansion[] units = seq.units.toArray(new Expansion[seq.units.size()]);
+        final Expansion[] units = seq.units.toArray(new Expansion[seq.units.size()]);
         if ((units[i] instanceof Lookahead) && ((Lookahead) units[i]).isExplicit()) {
           // An explicit lookahead (rather than one generated implicitly).
           // Assume
@@ -989,16 +1040,16 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
       }
       return false;
     } else if (exp instanceof OneOrMore) {
-      OneOrMore om = (OneOrMore) exp;
+      final OneOrMore om = (OneOrMore) exp;
       return javaCodeCheck(om.getExpansion());
     } else if (exp instanceof ZeroOrMore) {
-      ZeroOrMore zm = (ZeroOrMore) exp;
+      final ZeroOrMore zm = (ZeroOrMore) exp;
       return javaCodeCheck(zm.getExpansion());
     } else if (exp instanceof ZeroOrOne) {
-      ZeroOrOne zo = (ZeroOrOne) exp;
+      final ZeroOrOne zo = (ZeroOrOne) exp;
       return javaCodeCheck(zo.getExpansion());
     } else if (exp instanceof TryBlock) {
-      TryBlock tb = (TryBlock) exp;
+      final TryBlock tb = (TryBlock) exp;
       return javaCodeCheck(tb.exp);
     } else {
       return false;
@@ -1006,17 +1057,16 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
   }
 
   /**
-   * An array used to store the first sets generated by the following method. A
-   * true entry means that the corresponding token is in the first set.
+   * An array used to store the first sets generated by the following method. A true entry means
+   * that the corresponding token is in the first set.
    */
   private boolean[] firstSet;
 
   /**
-   * Sets up the array "firstSet" above based on the Expansion argument passed
-   * to it. Since this is a recursive function, it assumes that "firstSet" has
-   * been reset before the first call.
+   * Sets up the array "firstSet" above based on the Expansion argument passed to it. Since this is
+   * a recursive function, it assumes that "firstSet" has been reset before the first call.
    */
-  private void genFirstSet(Expansion exp) {
+  private void genFirstSet(final Expansion exp) {
     if (exp instanceof RegularExpression) {
       firstSet[((RegularExpression) exp).ordinal] = true;
     } else if (exp instanceof NonTerminal) {
@@ -1024,26 +1074,27 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
         genFirstSet(((BNFProduction) ((NonTerminal) exp).getProd()).getExpansion());
       }
     } else if (exp instanceof Choice) {
-      Choice ch = (Choice) exp;
-      for (Expansion element : ch.getChoices()) {
+      final Choice ch = (Choice) exp;
+      for (final Expansion element : ch.getChoices()) {
         genFirstSet(element);
       }
     } else if (exp instanceof Sequence) {
-      Sequence seq = (Sequence) exp;
-      Object obj = seq.units.get(0);
+      final Sequence seq = (Sequence) exp;
+      final Object obj = seq.units.get(0);
       if ((obj instanceof Lookahead) && (((Lookahead) obj).getActionTokens().size() != 0)) {
         jj2LA = true;
       }
       for (int i = 0; i < seq.units.size(); i++) {
-        Expansion unit = seq.units.get(i);
+        final Expansion unit = seq.units.get(i);
         // Javacode productions can not have FIRST sets. Instead we generate the
         // FIRST set
         // for the preceding LOOKAHEAD (the semantic checks should have made
         // sure that
         // the LOOKAHEAD is suitable).
-        if ((unit instanceof NonTerminal) && (((NonTerminal) unit).getProd() instanceof CodeProduction)) {
+        if ((unit instanceof NonTerminal)
+            && (((NonTerminal) unit).getProd() instanceof CodeProduction)) {
           if ((i > 0) && (seq.units.get(i - 1) instanceof Lookahead)) {
-            Lookahead la = (Lookahead) seq.units.get(i - 1);
+            final Lookahead la = (Lookahead) seq.units.get(i - 1);
             genFirstSet(la.getLaExpansion());
           }
         } else {
@@ -1054,51 +1105,61 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
         }
       }
     } else if (exp instanceof OneOrMore) {
-      OneOrMore om = (OneOrMore) exp;
+      final OneOrMore om = (OneOrMore) exp;
       genFirstSet(om.getExpansion());
     } else if (exp instanceof ZeroOrMore) {
-      ZeroOrMore zm = (ZeroOrMore) exp;
+      final ZeroOrMore zm = (ZeroOrMore) exp;
       genFirstSet(zm.getExpansion());
     } else if (exp instanceof ZeroOrOne) {
-      ZeroOrOne zo = (ZeroOrOne) exp;
+      final ZeroOrOne zo = (ZeroOrOne) exp;
       genFirstSet(zo.getExpansion());
     } else if (exp instanceof TryBlock) {
-      TryBlock tb = (TryBlock) exp;
+      final TryBlock tb = (TryBlock) exp;
       genFirstSet(tb.exp);
     }
   }
 
-  /**
-   * Constants used in the following method "buildLookaheadChecker".
-   */
-  private final int NOOPENSTM  = 0;
-  private final int OPENIF     = 1;
+  /* Constants used in the following method "buildLookaheadChecker". */
+  private final int NOOPENSTM = 0;
+  private final int OPENIF = 1;
   private final int OPENSWITCH = 2;
 
-  /**
-   * This method takes two parameters - an array of Lookahead's "conds", and an
-   * array of String's "actions". "actions" contains exactly one element more
-   * than "conds". "actions" are Java source code, and "conds" translate to
-   * conditions - so lets say "f(conds[i])" is true if the lookahead required by
-   * "conds[i]" is indeed the case. This method returns a string corresponding
-   * to the Java code for:
-   *
-   * if (f(conds[0]) actions[0] else if (f(conds[1]) actions[1] . . . else
-   * actions[action.length-1]
-   *
-   * A particular action entry ("actions[i]") can be null, in which case, a noop
-   * is generated for that action.
+  /*
+   * The phase 1 routines generates their output into String's and dumps these String's once for
+   *  each method.
+   * These String's contain the special characters '\u0001' to indicate a positive indent,
+   *  and '\u0002' to indicate a negative indent.
+   * '\n' is used to indicate a line terminator.
+   * The characters '\u0003' and '\u0004' are used to delineate portions of text where '\n's
+   *  should not be followed by an indentation.
    */
-  private String buildLookaheadChecker(Lookahead[] conds, String[] actions) {
+
+  /**
+   * This method takes two parameters - an array of Lookahead's "<code>conds</code>", and an array
+   * of String's "<code>actions</code>".<br>
+   * "<code>actions</code>" contains exactly one element more than "<code>conds</code>".<br>
+   * "<code>actions</code>" are Java source code, and "<code>conds</code>" translate to conditions
+   * <br>
+   * - so lets say "<code>f(conds[i])</code>" is <code>true</code> if the lookahead required by "
+   * <code>conds[i]
+   * </code>" is indeed the case. <br>
+   * This method returns a string corresponding to the Java code for: <br>
+   * <code>
+   * if (f(conds[0]) actions[0]<br>else if (f(conds[1]) actions[1]<br>. . .<br> else actions[action.length-1]
+   * </code> <br>
+   * A particular action entry ("<code>actions[i]</code>") can be <code>null</code>, in which case,
+   * a noop is generated for that action.
+   */
+  private String buildLookaheadChecker(final Lookahead[] conds, final String[] actions) {
 
     // The state variables.
     int state = NOOPENSTM;
     int indentAmt = 0;
-    boolean[] casedValues = new boolean[context.globals().tokenCount];
+    final boolean[] casedValues = new boolean[context.globals().tokenCount];
     String retval = "";
     Lookahead la;
     Token t = null;
-    int tokenMaskSize = ((context.globals().tokenCount - 1) / 32) + 1;
+    final int tokenMaskSize = ((context.globals().tokenCount - 1) / 32) + 1;
     int[] tokenMask = null;
 
     // Iterate over all the conditions.
@@ -1108,28 +1169,24 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
       la = conds[index];
       jj2LA = false;
 
-      if ((la.getAmount() == 0) || Semanticize.emptyExpansionExists(la.getLaExpansion())
+      if ((la.getAmount() == 0)
+          || Semanticize.emptyExpansionExists(la.getLaExpansion())
           || javaCodeCheck(la.getLaExpansion())) {
 
         // This handles the following cases:
-        // . If syntactic lookahead is not wanted (and hence explicitly
-        // specified
-        // as 0).
-        // . If it is possible for the lookahead expansion to recognize the
-        // empty
-        // string - in which case the lookahead trivially passes.
-        // . If the lookahead expansion has a JAVACODE production that it
-        // directly
-        // expands to - in which case the lookahead trivially passes.
+        // . If syntactic lookahead is not wanted (and hence explicitly specified as 0).
+        // . If it is possible for the lookahead expansion to recognize the empty string
+        //   - in which case the lookahead trivially passes.
+        // . If the lookahead expansion has a JAVACODE production that it directly expands to
+        //   - in which case the lookahead trivially passes.
         if (la.getActionTokens().size() == 0) {
-          // In addition, if there is no semantic lookahead, then the
-          // lookahead trivially succeeds. So break the main loop and
-          // treat this case as the default last action.
+          // In addition, if there is no semantic lookahead, then the lookahead trivially succeeds.
+          // So break the main loop and treat this case as the default last action.
           break;
         } else {
           // This case is when there is only semantic lookahead
-          // (without any preceding syntactic lookahead). In this
-          // case, an "if" statement is generated.
+          //  (without any preceding syntactic lookahead).
+          // In this case, an "if" statement is generated.
           switch (state) {
             case NOOPENSTM:
               retval += "\n" + "if (";
@@ -1139,7 +1196,7 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
               retval += "\u0002\n" + "} else if (";
               break;
             case OPENSWITCH:
-              retval += "\u0002\n" + "default:" + "\u0001";
+              retval += "\n" + "default:" + "\u0001";
               if (Options.getErrorReporting()) {
                 retval += "\njj_la1[" + context.globals().maskindex + "] = jj_gen;";
                 context.globals().maskindex++;
@@ -1148,19 +1205,19 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
               retval += "\n" + "if (";
               indentAmt++;
           }
-          codeGenerator.printTokenSetup(la.getActionTokens().get(0));
-          for (Iterator<Token> it = la.getActionTokens().iterator(); it.hasNext();) {
+          ccb.printTokenSetup(la.getActionTokens().get(0));
+          for (final Iterator<Token> it = la.getActionTokens().iterator(); it.hasNext(); ) {
             t = it.next();
             retval += CodeBuilder.toString(t);
           }
-          retval += codeGenerator.getTrailingComments(t);
+          retval += ccb.getTrailingComments(t);
           retval += ") {\u0001" + actions[index];
           state = OPENIF;
         }
 
       } else if ((la.getAmount() == 1) && (la.getActionTokens().size() == 0)) {
-        // Special optimal processing when the lookahead is exactly 1, and there
-        // is no semantic lookahead.
+        // Special optimal processing when the lookahead is exactly 1
+        //  and there is no semantic lookahead.
 
         if (firstSet == null) {
           firstSet = new boolean[context.globals().tokenCount];
@@ -1168,20 +1225,16 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
         for (int i = 0; i < context.globals().tokenCount; i++) {
           firstSet[i] = false;
         }
-        // jj2LA is set to false at the beginning of the containing "if"
-        // statement.
-        // It is checked immediately after the end of the same statement to
-        // determine
-        // if lookaheads are to be performed using calls to the jj2 methods.
+        // jj2LA is set to false at the beginning of the containing "if" statement.
+        // It is checked immediately after the end of the same statement to determine
+        //  if lookaheads are to be performed using calls to the jj2 methods.
         genFirstSet(la.getLaExpansion());
-        // genFirstSet may find that semantic attributes are appropriate for the
-        // next
-        // token. In which case, it sets jj2LA to true.
+        // genFirstSet may find that semantic attributes are appropriate for the next token.
+        // In which case, it sets jj2LA to true.
         if (!jj2LA) {
 
-          // This case is if there is no applicable semantic lookahead and the
-          // lookahead
-          // is one (excluding the earlier cases such as JAVACODE, etc.).
+          // This case is if there is no applicable semantic lookahead and the lookahead is one
+          //  (excluding the earlier cases such as JAVACODE, etc.).
           switch (state) {
             case OPENIF:
               retval += "\u0002\n" + "} else {\u0001";
@@ -1208,39 +1261,37 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
             if (firstSet[i]) {
               if (!casedValues[i]) {
                 casedValues[i] = true;
-                retval += "\u0002\ncase ";
-                int j1 = i / 32;
-                int j2 = i % 32;
+                retval += "\ncase ";
+                final int j1 = i / 32;
+                final int j2 = i % 32;
                 tokenMask[j1] |= 1 << j2;
-                String s = addTokenNamespace(context.globals().names_of_tokens.get(Integer.valueOf(i)));
+                final String s =
+                    addTokenNamespace(context.globals().names_of_tokens.get(Integer.valueOf(i)));
                 if (s == null) {
                   retval += i;
                 } else {
                   retval += s;
                 }
-                retval += ":\u0001";
+                retval += " : \u0001";
               }
             }
           }
           retval += "{";
           retval += actions[index];
-          retval += "\nbreak;\n}";
+          retval += "\nbreak;\u0002\n}";
           state = OPENSWITCH;
-
         }
 
       } else {
-        // This is the case when lookahead is determined through calls to
-        // jj2 methods. The other case is when lookahead is 1, but semantic
-        // attributes need to be evaluated. Hence this crazy control structure.
+        // This is the case when lookahead is determined through calls to jj2 methods.
+        // The other case is when lookahead is 1, but semantic attributes need to be evaluated.
+        // Hence this crazy control structure.
 
         jj2LA = true;
-
       }
 
       if (jj2LA) {
         // In this case lookahead is determined by the jj2 methods.
-
         switch (state) {
           case NOOPENSTM:
             retval += "\n" + "if (";
@@ -1250,7 +1301,7 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
             retval += "\u0002\n" + "} else if (";
             break;
           case OPENSWITCH:
-            retval += "\u0002\n" + "default:" + "\u0001";
+            retval += "\n" + "default:" + "\u0001";
             if (Options.getErrorReporting()) {
               retval += "\njj_la1[" + context.globals().maskindex + "] = jj_gen;";
               context.globals().maskindex++;
@@ -1266,22 +1317,22 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
         phase2list.add(la);
         String amount;
         if (la.getAmount() == Integer.MAX_VALUE) {
-            amount = "INT_MAX";
+          amount = "INT_MAX";
         } else {
-            amount = Integer.toString(la.getAmount());
+          amount = Integer.toString(la.getAmount());
         }
-        
+
         retval += "jj_2" + internalNames.get(la.getLaExpansion()) + "(" + amount + ")";
         if (la.getActionTokens().size() != 0) {
-          // In addition, there is also a semantic lookahead. So concatenate
-          // the semantic check with the syntactic one.
+          // In addition, there is also a semantic lookahead.
+          // So concatenate the semantic check with the syntactic one.
           retval += " && (";
-          codeGenerator.printTokenSetup(la.getActionTokens().get(0));
-          for (Iterator<Token> it = la.getActionTokens().iterator(); it.hasNext();) {
+          ccb.printTokenSetup(la.getActionTokens().get(0));
+          for (final Iterator<Token> it = la.getActionTokens().iterator(); it.hasNext(); ) {
             t = it.next();
             retval += CodeBuilder.toString(t);
           }
-          retval += codeGenerator.getTrailingComments(t);
+          retval += ccb.getTrailingComments(t);
           retval += ")";
         }
         retval += ") {\u0001" + actions[index];
@@ -1291,9 +1342,8 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
       index++;
     }
 
-    // Generate code for the default case. Note this may not
-    // be the last entry of "actions" if any condition can be
-    // statically determined to be always "true".
+    // Generate code for the default case. Note this may not be the last entry of "actions"
+    //  if any condition can be statically determined to be always "true".
 
     switch (state) {
       case NOOPENSTM:
@@ -1303,23 +1353,25 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
         retval += "\u0002\n" + "} else {\u0001" + actions[index];
         break;
       case OPENSWITCH:
-        retval += "\u0002\n" + "default:" + "\u0001";
+        retval += "\n" + "default:" + "\u0001";
         if (Options.getErrorReporting()) {
           retval += "\njj_la1[" + context.globals().maskindex + "] = jj_gen;";
           context.globals().maskVals.add(tokenMask);
           context.globals().maskindex++;
         }
         retval += actions[index];
+        retval += "\u0002";
     }
     for (int i = 0; i < indentAmt; i++) {
       retval += "\u0002\n}";
     }
 
     return retval;
-
   }
 
-  private void dumpFormattedString(String str) {
+  private int indentamt;
+
+  private void dumpFormattedString(final String str) {
     char ch = ' ';
     char prevChar;
     boolean indentOn = true;
@@ -1333,7 +1385,7 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
         if (indentOn) {
           phase1NewLine();
         } else {
-          codeGenerator.println("");
+          ccb.println();
         }
       } else if (ch == '\u0001') {
         indentamt += 2;
@@ -1344,22 +1396,22 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
       } else if (ch == '\u0004') {
         indentOn = true;
       } else {
-        codeGenerator.print(ch);
+        ccb.print(ch);
       }
     }
   }
 
-  // Print method header and return the ERROR_RETURN string.
-  private String generateCPPMethodheader(BNFProduction p, Token t) {
-    StringBuffer sig = new StringBuffer();
+  /** Print method header and return the ERROR_RETURN string. */
+  private String generateCPPMethodheader(final BNFProduction p, Token t) {
+    final StringBuffer sig = new StringBuffer();
     String ret, params;
 
-    String method_name = p.getLhs();
+    final String method_name = p.getLhs();
     boolean void_ret = false;
     boolean ptr_ret = false;
 
-    codeGenerator.printTokenSetup(t);
-    codeGenerator.getLeadingComments(t);
+    ccb.printTokenSetup(t);
+    ccb.getLeadingComments(t);
     sig.append(t.image);
     if (t.kind == JavaCCParserConstants.VOID) {
       void_ret = true;
@@ -1379,24 +1431,25 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
       }
     }
 
-    codeGenerator.getTrailingComments(t);
+    ccb.getTrailingComments(t);
     ret = sig.toString();
 
     sig.setLength(0);
     sig.append("(");
     if (p.getParameterListTokens().size() != 0) {
-      codeGenerator.printTokenSetup(p.getParameterListTokens().get(0));
-      for (Iterator<Token> it = p.getParameterListTokens().iterator(); it.hasNext();) {
+      ccb.printTokenSetup(p.getParameterListTokens().get(0));
+      for (final Iterator<Token> it = p.getParameterListTokens().iterator(); it.hasNext(); ) {
         t = it.next();
         sig.append(CodeBuilder.toString(t));
       }
-      sig.append(codeGenerator.getTrailingComments(t));
+      sig.append(ccb.getTrailingComments(t));
     }
     sig.append(")");
     params = sig.toString();
 
     // For now, just ignore comments
-    codeGenerator.generateMethodDefHeader(ret, context.globals().cu_name, p.getLhs() + params, sig.toString());
+    ccb.generateMethodDefHeader(
+        ret, context.globals().cu_name, p.getLhs() + params, sig.toString());
 
     // Generate a default value for error return.
     String default_return;
@@ -1408,7 +1461,7 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
       default_return = "0"; // 0 converts to most (all?) basic types.
     }
 
-    StringBuffer ret_val = new StringBuffer("\n#if !defined ERROR_RET_" + method_name + "\n");
+    final StringBuffer ret_val = new StringBuffer("\n#if !defined ERROR_RET_" + method_name + "\n");
     ret_val.append("#define ERROR_RET_" + method_name + " " + default_return + "\n");
     ret_val.append("#endif\n");
     ret_val.append("#define __ERROR_RET__ ERROR_RET_" + method_name + "\n");
@@ -1416,31 +1469,7 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
     return ret_val.toString();
   }
 
-
-  private void genStackCheck(boolean voidReturn) {
-    if (Options.getDepthLimit() > 0) {
-      if (!voidReturn) {
-        codeGenerator.println("if(jj_depth_error){ return __ERROR_RET__; }");
-      } else {
-        codeGenerator.println("if(jj_depth_error){ return; }");
-      }
-      codeGenerator.println("__jj_depth_inc __jj_depth_counter(this);");
-      codeGenerator.println("if(jj_depth > " + Options.getDepthLimit() + ") {");
-      codeGenerator.println("  jj_depth_error = true;");
-      codeGenerator.println("  jj_consume_token(-1);");
-      codeGenerator
-      .println("  errorHandler->parseError(token, getToken(1), __FUNCTION__), hasError = true;");
-      if (!voidReturn) {
-        codeGenerator.println("  return __ERROR_RET__;"); // Non-recoverable
-        // error
-      } else {
-        codeGenerator.println("  return;"); // Non-recoverable error
-      }
-      codeGenerator.println("}");
-    }
-  }
-
-  private void buildPhase1Routine(BNFProduction p) {
+  private void buildPhase1Routine(final BNFProduction p) {
     Token t = p.getReturnTypeTokens().get(0);
     boolean voidReturn = false;
     if (t.kind == JavaCCParserConstants.VOID) {
@@ -1449,85 +1478,94 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
     String error_ret = null;
     error_ret = generateCPPMethodheader(p, t);
 
-    codeGenerator.print(" {");
+    ccb.print(" {");
 
-    if ((Options.booleanValue(Options.USEROPTION__CPP_STOP_ON_FIRST_ERROR) && (error_ret != null))
+    if ((Options.getStopOnFirstError() && (error_ret != null))
         || ((Options.getDepthLimit() > 0) && !voidReturn)) {
-      codeGenerator.print(error_ret);
+      ccb.print(error_ret);
     } else {
       error_ret = null;
     }
 
     genStackCheck(voidReturn);
 
-    indentamt = 4;
+    indentamt = 2;
     if (Options.getDebugParser()) {
-      codeGenerator.println("");
-      codeGenerator.println("    JJEnter<std::function<void()>> jjenter([this]() {trace_call  (\""
-          + codeGenerator.escapeToUnicode(p.getLhs()) + "\"); });");
-      codeGenerator.println("    JJExit <std::function<void()>> jjexit ([this]() {trace_return(\""
-          + codeGenerator.escapeToUnicode(p.getLhs()) + "\"); });");
-      codeGenerator.println("    try {");
-      indentamt = 6;
+      ccb.println();
+      ccb.println(
+          "  JJEnter<std::function<void()>> jjenter([this]() {trace_call  (\""
+              + ccb.escapeToUnicode(p.getLhs())
+              + "\"); });");
+      ccb.println(
+          "  JJExit <std::function<void()>> jjexit ([this]() {trace_return(\""
+              + ccb.escapeToUnicode(p.getLhs())
+              + "\"); });");
+      //      codeGen.println("  try {");
+      ccb.print("  try {");
+      indentamt += 2;
     }
 
-    if (!Options.booleanValue(Options.USEROPTION__IGNORE_ACTIONS) && (p.getDeclarationTokens().size() != 0)) {
-      codeGenerator.printTokenSetup(p.getDeclarationTokens().get(0));
-      for (Iterator<Token> it = p.getDeclarationTokens().iterator(); it.hasNext();) {
+    if (!Options.booleanValue(Options.UO__IGNORE_ACTIONS)
+        && (p.getDeclarationTokens().size() != 0)) {
+      ccb.printTokenSetup(p.getDeclarationTokens().get(0));
+      for (final Iterator<Token> it = p.getDeclarationTokens().iterator(); it.hasNext(); ) {
         t = it.next();
-        codeGenerator.printToken(t);
+        ccb.printToken(t);
       }
-      codeGenerator.printTrailingComments(t);
+      ccb.printTrailingComments(t);
     }
 
-    String code = phase1ExpansionGen(p.getExpansion());
+    final String code = phase1ExpansionGen(p.getExpansion());
     dumpFormattedString(code);
-    codeGenerator.println("");
+    ccb.println();
 
     if (p.isJumpPatched() && !voidReturn) {
-      codeGenerator.println("    throw \"Missing return statement in function\";");
+      ccb.println("  throw \"Missing return statement in function\";");
     }
     if (Options.getDebugParser()) {
-      codeGenerator.println("    } catch(...) { }");
+      ccb.println("  } catch(...) { }");
+      indentamt -= 2;
     }
     if (!voidReturn) {
-      codeGenerator.println("assert(false);");
+      ccb.println("assert(false);");
     }
 
     if (error_ret != null) {
-      codeGenerator.println("\n#undef __ERROR_RET__\n");
+      ccb.println("\n#undef __ERROR_RET__\n");
     }
-    codeGenerator.println("}");
-    codeGenerator.println("");
+    ccb.println("}");
+    ccb.println();
   }
 
   private void phase1NewLine() {
-    codeGenerator.println("");
+    ccb.println();
     for (int i = 0; i < indentamt; i++) {
-      codeGenerator.print(" ");
+      ccb.print(' ');
     }
   }
 
-  private String phase1ExpansionGen(Expansion e) {
+  private int gensymindex = 0;
+
+  private String phase1ExpansionGen(final Expansion e) {
     String retval = "";
     Token t = null;
     Lookahead[] conds;
     String[] actions;
     if (e instanceof RegularExpression) {
-      RegularExpression e_nrw = (RegularExpression) e;
+      final RegularExpression e_nrw = (RegularExpression) e;
       retval += "\n";
       if (e_nrw.lhsTokens.size() != 0) {
-        codeGenerator.printTokenSetup(e_nrw.lhsTokens.get(0));
-        for (Iterator<Token> it = e_nrw.lhsTokens.iterator(); it.hasNext();) {
+        ccb.printTokenSetup(e_nrw.lhsTokens.get(0));
+        for (final Iterator<Token> it = e_nrw.lhsTokens.iterator(); it.hasNext(); ) {
           t = it.next();
           retval += CodeBuilder.toString(t);
         }
-        retval += codeGenerator.getTrailingComments(t);
+        retval += ccb.getTrailingComments(t);
         retval += " = ";
       }
-      String tail = e_nrw.rhsToken == null ? ");" : ")->" + e_nrw.rhsToken.image + ";";
+      final String tail = e_nrw.rhsToken == null ? ");" : ")->" + e_nrw.rhsToken.image + ";";
       if (e_nrw.label.equals("")) {
-        Object label = context.globals().names_of_tokens.get(Integer.valueOf(e_nrw.ordinal));
+        final Object label = context.globals().names_of_tokens.get(Integer.valueOf(e_nrw.ordinal));
         if (label != null) {
           retval += "jj_consume_token(" + addTokenNamespace((String) label + tail);
         } else {
@@ -1537,58 +1575,59 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
         retval += "jj_consume_token(" + addTokenNamespace(e_nrw.label + tail);
       }
 
-      if (Options.booleanValue(Options.USEROPTION__CPP_STOP_ON_FIRST_ERROR)) {
+      if (Options.getStopOnFirstError()) {
         retval += "\n    { if (hasError) { return __ERROR_RET__; } }\n";
       }
 
     } else if (e instanceof NonTerminal) {
-      NonTerminal e_nrw = (NonTerminal) e;
+      final NonTerminal e_nrw = (NonTerminal) e;
       retval += "\n";
       if (e_nrw.getLhsTokens().size() != 0) {
-        codeGenerator.printTokenSetup(e_nrw.getLhsTokens().get(0));
-        for (Iterator<Token> it = e_nrw.getLhsTokens().iterator(); it.hasNext();) {
+        ccb.printTokenSetup(e_nrw.getLhsTokens().get(0));
+        for (final Iterator<Token> it = e_nrw.getLhsTokens().iterator(); it.hasNext(); ) {
           t = it.next();
           retval += CodeBuilder.toString(t);
         }
-        retval += codeGenerator.getTrailingComments(t);
+        retval += ccb.getTrailingComments(t);
         retval += " = ";
       }
       retval += e_nrw.getName() + "(";
       if (e_nrw.getArgumentTokens().size() != 0) {
-        codeGenerator.printTokenSetup(e_nrw.getArgumentTokens().get(0));
-        for (Iterator<Token> it = e_nrw.getArgumentTokens().iterator(); it.hasNext();) {
+        ccb.printTokenSetup(e_nrw.getArgumentTokens().get(0));
+        for (final Iterator<Token> it = e_nrw.getArgumentTokens().iterator(); it.hasNext(); ) {
           t = it.next();
           retval += CodeBuilder.toString(t);
         }
-        retval += codeGenerator.getTrailingComments(t);
+        retval += ccb.getTrailingComments(t);
       }
       retval += ");";
-      if (Options.booleanValue(Options.USEROPTION__CPP_STOP_ON_FIRST_ERROR)) {
+      if (Options.getStopOnFirstError()) {
         retval += "\n    { if (hasError) { return __ERROR_RET__; } }\n";
       }
     } else if (e instanceof Action) {
-      Action e_nrw = (Action) e;
+      final Action e_nrw = (Action) e;
       retval += "\u0003\n";
-      if (!Options.booleanValue(Options.USEROPTION__IGNORE_ACTIONS) && (e_nrw.getActionTokens().size() != 0)) {
-        codeGenerator.printTokenSetup(e_nrw.getActionTokens().get(0));
-        for (Iterator<Token> it = e_nrw.getActionTokens().iterator(); it.hasNext();) {
+      if (!Options.booleanValue(Options.UO__IGNORE_ACTIONS)
+          && (e_nrw.getActionTokens().size() != 0)) {
+        ccb.printTokenSetup(e_nrw.getActionTokens().get(0));
+        for (final Iterator<Token> it = e_nrw.getActionTokens().iterator(); it.hasNext(); ) {
           t = it.next();
           retval += CodeBuilder.toString(t);
         }
-        retval += codeGenerator.getTrailingComments(t);
+        retval += ccb.getTrailingComments(t);
       }
       retval += "\u0004";
     } else if (e instanceof Choice) {
-      Choice e_nrw = (Choice) e;
+      final Choice e_nrw = (Choice) e;
       conds = new Lookahead[e_nrw.getChoices().size()];
       actions = new String[e_nrw.getChoices().size() + 1];
-      actions[e_nrw.getChoices().size()] = "\n" + "jj_consume_token(-1);\n"
-          + "errorHandler->parseError(token, getToken(1), __FUNCTION__), hasError = true;"
-          + (Options.booleanValue(Options.USEROPTION__CPP_STOP_ON_FIRST_ERROR) ? "return __ERROR_RET__;\n" : "");
-
-      // In previous line, the "throw" never throws an exception since the
-      // evaluation of jj_consume_token(-1) causes ParseException to be
-      // thrown first.
+      actions[e_nrw.getChoices().size()] =
+          "\n"
+              + "jj_consume_token(-1);\n"
+              + "errorHandler->parseError(token, getToken(1), __FUNCTION__), hasError = true;"
+              + (Options.getStopOnFirstError() ? "\nreturn __ERROR_RET__;" : "");
+      // In previous line, the "throw" never throws an exception since the evaluation of
+      //  jj_consume_token(-1) causes ParseException to be thrown first.
       Sequence nestedSeq;
       for (int i = 0; i < e_nrw.getChoices().size(); i++) {
         nestedSeq = (Sequence) e_nrw.getChoices().get(i);
@@ -1597,29 +1636,30 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
       }
       retval = buildLookaheadChecker(conds, actions);
     } else if (e instanceof Sequence) {
-      Sequence e_nrw = (Sequence) e;
-      // We skip the first element in the following iteration since it is the
-      // Lookahead object.
+      final Sequence e_nrw = (Sequence) e;
+      // We skip the first element in the following iteration since it is the Lookahead object.
       for (int i = 1; i < e_nrw.units.size(); i++) {
         // For C++, since we are not using exceptions, we will protect all the
-        // expansion choices with if (!error)
+        //  expansion choices with if (!error)
         boolean wrap_in_block = false;
         if (!context.globals().jjtreeGenerated) {
           // for the last one, if it's an action, we will not protect it.
-          Expansion elem = e_nrw.units.get(i);
-          if (!(elem instanceof Action) || !(e.parent instanceof BNFProduction) || (i != (e_nrw.units.size() - 1))) {
+          final Expansion elem = e_nrw.units.get(i);
+          if (!(elem instanceof Action)
+              || !(e.parent instanceof BNFProduction)
+              || (i != (e_nrw.units.size() - 1))) {
             wrap_in_block = true;
-            retval += "\nif (!hasError) {";
+            retval += "\nif (!hasError) {\u0001";
           }
         }
         retval += phase1ExpansionGen(e_nrw.units.get(i));
         if (wrap_in_block) {
-          retval += "\n}";
+          retval += "\u0002\n}";
         }
       }
     } else if (e instanceof OneOrMore) {
-      OneOrMore e_nrw = (OneOrMore) e;
-      Expansion nested_e = e_nrw.getExpansion();
+      final OneOrMore e_nrw = (OneOrMore) e;
+      final Expansion nested_e = e_nrw.getExpansion();
       Lookahead la;
       if (nested_e instanceof Sequence) {
         la = (Lookahead) ((Sequence) nested_e).units.get(0);
@@ -1629,7 +1669,7 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
         la.setLaExpansion(nested_e);
       }
       retval += "\n";
-      int labelIndex = ++gensymindex;
+      final int labelIndex = ++gensymindex;
       retval += "while (!hasError) {\u0001";
       retval += phase1ExpansionGen(nested_e);
       conds = new Lookahead[1];
@@ -1642,8 +1682,8 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
       retval += "\u0002\n" + "}";
       retval += "\nend_label_" + labelIndex + ": ;";
     } else if (e instanceof ZeroOrMore) {
-      ZeroOrMore e_nrw = (ZeroOrMore) e;
-      Expansion nested_e = e_nrw.getExpansion();
+      final ZeroOrMore e_nrw = (ZeroOrMore) e;
+      final Expansion nested_e = e_nrw.getExpansion();
       Lookahead la;
       if (nested_e instanceof Sequence) {
         la = (Lookahead) ((Sequence) nested_e).units.get(0);
@@ -1653,7 +1693,7 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
         la.setLaExpansion(nested_e);
       }
       retval += "\n";
-      int labelIndex = ++gensymindex;
+      final int labelIndex = ++gensymindex;
       retval += "while (!hasError) {\u0001";
       conds = new Lookahead[1];
       conds[0] = la;
@@ -1665,8 +1705,8 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
       retval += "\u0002\n" + "}";
       retval += "\nend_label_" + labelIndex + ": ;";
     } else if (e instanceof ZeroOrOne) {
-      ZeroOrOne e_nrw = (ZeroOrOne) e;
-      Expansion nested_e = e_nrw.getExpansion();
+      final ZeroOrOne e_nrw = (ZeroOrOne) e;
+      final Expansion nested_e = e_nrw.getExpansion();
       Lookahead la;
       if (nested_e instanceof Sequence) {
         la = (Lookahead) ((Sequence) nested_e).units.get(0);
@@ -1682,8 +1722,8 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
       actions[1] = "\n;";
       retval += buildLookaheadChecker(conds, actions);
     } else if (e instanceof TryBlock) {
-      TryBlock e_nrw = (TryBlock) e;
-      Expansion nested_e = e_nrw.exp;
+      final TryBlock e_nrw = (TryBlock) e;
+      final Expansion nested_e = e_nrw.exp;
       List<Token> list;
       retval += "\n";
       retval += "try {\u0001";
@@ -1693,27 +1733,27 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
         retval += " catch (";
         list = e_nrw.types.get(i);
         if (list.size() != 0) {
-          codeGenerator.printTokenSetup(list.get(0));
-          for (Iterator<Token> it = list.iterator(); it.hasNext();) {
+          ccb.printTokenSetup(list.get(0));
+          for (final Iterator<Token> it = list.iterator(); it.hasNext(); ) {
             t = it.next();
             retval += CodeBuilder.toString(t);
           }
-          retval += codeGenerator.getTrailingComments(t);
+          retval += ccb.getTrailingComments(t);
         }
         // retval += " ";
         // t = (Token)(e_nrw.ids.get(i));
-        // codeGenerator.printTokenSetup(t);
-        // retval += codeGenerator.getStringToPrint(t);
-        // retval += codeGenerator.getTrailingComments(t);
+        // codeGen.printTokenSetup(t);
+        // retval += codeGen.getStringToPrint(t);
+        // retval += codeGen.getTrailingComments(t);
         // retval += ") {\u0003\n";
         list = e_nrw.catchblks.get(i);
         if (list.size() != 0) {
-          codeGenerator.printTokenSetup((list.get(0)));
-          for (Iterator<Token> it = list.iterator(); it.hasNext();) {
+          ccb.printTokenSetup((list.get(0)));
+          for (final Iterator<Token> it = list.iterator(); it.hasNext(); ) {
             t = it.next();
             retval += CodeBuilder.toString(t);
           }
-          retval += codeGenerator.getTrailingComments(t);
+          retval += ccb.getTrailingComments(t);
         }
         retval += "\u0004\n" + "}";
       }
@@ -1721,12 +1761,12 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
         retval += " finally {\u0003\n";
 
         if (e_nrw.finallyblk.size() != 0) {
-          codeGenerator.printTokenSetup(e_nrw.finallyblk.get(0));
-          for (Iterator<Token> it = e_nrw.finallyblk.iterator(); it.hasNext();) {
+          ccb.printTokenSetup(e_nrw.finallyblk.get(0));
+          for (final Iterator<Token> it = e_nrw.finallyblk.iterator(); it.hasNext(); ) {
             t = it.next();
             retval += CodeBuilder.toString(t);
           }
-          retval += codeGenerator.getTrailingComments(t);
+          retval += ccb.getTrailingComments(t);
         }
         retval += "\u0004\n" + "}";
       }
@@ -1734,43 +1774,55 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
     return retval;
   }
 
-  private void buildPhase2Routine(Lookahead la) {
-    Expansion e = la.getLaExpansion();
-    codeGenerator.println(" inline bool ", "jj_2" + internalNames.get(e) + "(int xla)");
-    codeGenerator.println(" {");
-    codeGenerator.println("    jj_la = xla; jj_lastpos = jj_scanpos = token;");
+  private void buildPhase2Routine(final Lookahead la) {
+    final Expansion e = la.getLaExpansion();
+    ccb.println("  inline bool ", "jj_2" + internalNames.get(e) + "(int xla) {");
+    ccb.println("    jj_la = xla; jj_lastpos = jj_scanpos = token;");
 
     String ret_suffix = "";
     if (Options.getDepthLimit() > 0) {
       ret_suffix = " && !jj_depth_error";
     }
 
-    codeGenerator.println("    jj_done = false;");
-    codeGenerator.println("    return (!jj_3" + internalNames.get(e) + "() || jj_done)" + ret_suffix + ";");
+    ccb.println("    jj_done = false;");
+    ccb.println("    return (!jj_3" + internalNames.get(e) + "() || jj_done)" + ret_suffix + ";");
     if (Options.getErrorReporting()) {
-      codeGenerator.println(" { jj_save(" + (Integer.parseInt(internalNames.get(e).substring(1)) - 1) + ", xla); }");
+      ccb.println(
+          "    jj_save(" + (Integer.parseInt(internalNames.get(e).substring(1)) - 1) + ", xla);");
     }
-    codeGenerator.println("  }");
-    codeGenerator.println("");
-    Phase3Data p3d = new Phase3Data(e, la.getAmount());
+    ccb.println("  }");
+    ccb.println();
+    final Phase3Data p3d = new Phase3Data(e, la.getAmount());
     phase3list.add(p3d);
     phase3table.put(e, p3d);
   }
 
-  private boolean   xsp_declared;
+  private boolean xsp_declared;
 
   private Expansion jj3_expansion;
 
-  private String genReturn(boolean value) {
-    String retval = value ? "true" : "false";
+  private String genReturn(final boolean value) {
+    final String retval = value ? "true" : "false";
     if (Options.getDebugLookahead() && (jj3_expansion != null)) {
+      String ind = "";
+      for (int i = 0; i < indentamt; i++) {
+        ind += " ";
+      }
+      String str = "";
       String tracecode =
-          "trace_la_return(\"" + codeGenerator.escapeToUnicode(((NormalProduction) jj3_expansion.parent).getLhs())
-          + "(LOOKAHEAD " + (value ? "FAILED" : "SUCCEEDED") + ")\");";
+          "trace_la_return(\""
+              + ccb.escapeToUnicode(((NormalProduction) jj3_expansion.parent).getLhs())
+              + "(LOOKAHEAD "
+              + (value ? "FAILED" : "SUCCEEDED")
+              + ")\");";
       if (Options.getErrorReporting()) {
         tracecode = "if (!jj_rescan) " + tracecode;
       }
-      return "{ " + tracecode + " return " + retval + "; }";
+      str += "{\n  " + ind;
+      str += tracecode + "\n  " + ind;
+      str += "return " + retval + ";\n" + ind;
+      str += "}";
+      return str;
     } else {
       return "return " + retval + ";";
     }
@@ -1784,15 +1836,15 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
     return addTokenNamespace("tokenLabels");
   }
 
-  private void generate3R(Expansion e, Phase3Data inf) {
+  private void generate3R(final Expansion e, final Phase3Data inf) {
     Expansion seq = e;
     if (!internalNames.containsKey(e) || internalNames.get(e).equals("")) {
       while (true) {
         if ((seq instanceof Sequence) && (((Sequence) seq).units.size() == 2)) {
           seq = ((Sequence) seq).units.get(1);
         } else if (seq instanceof NonTerminal) {
-          NonTerminal e_nrw = (NonTerminal) seq;
-          NormalProduction ntprod = context.globals().production_table.get(e_nrw.getName());
+          final NonTerminal e_nrw = (NonTerminal) seq;
+          final NormalProduction ntprod = context.globals().production_table.get(e_nrw.getName());
           if (ntprod instanceof CodeProduction) {
             break; // nothing to do here
           } else {
@@ -1804,10 +1856,10 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
       }
 
       if (seq instanceof RegularExpression) {
-        RegularExpression re = (RegularExpression) seq;
+        final RegularExpression re = (RegularExpression) seq;
         String jj_scan_token = "jj_scan_token";
         if (re.label.equals("")) {
-          Object label = context.globals().names_of_tokens.get(Integer.valueOf(re.ordinal));
+          final Object label = context.globals().names_of_tokens.get(Integer.valueOf(re.ordinal));
           if (label != null) {
             jj_scan_token += "(" + addTokenNamespace((String) label) + ")";
           } else {
@@ -1823,11 +1875,20 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
       gensymindex++;
       // if (gensymindex == 100)
       // {
-      // new Error().codeGenerator.printStackTrace();
+      // new Error().codeGen.printStackTrace();
       // System.out.println(" ***** seq: " + seq.internal_name + "; size: " +
       // ((Sequence)seq).units.size());
       // }
-      internalNames.put(e, "R_" + e.getProductionName() + "_" + e.getLine() + "_" + e.getColumn() + "_" + gensymindex);
+      internalNames.put(
+          e,
+          "R_"
+              + e.getProductionName()
+              + "_"
+              + e.getLine()
+              + "_"
+              + e.getColumn()
+              + "_"
+              + gensymindex);
       internalIndexes.put(e, gensymindex);
     }
     Phase3Data p3d = phase3table.get(e);
@@ -1838,34 +1899,32 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
     }
   }
 
-  private void setupPhase3Builds(Phase3Data inf) {
-    Expansion e = inf.exp;
+  private void setupPhase3Builds(final Phase3Data inf) {
+    final Expansion e = inf.exp;
     if (e instanceof RegularExpression) {
       // nothing to here
     } else if (e instanceof NonTerminal) {
-      // All expansions of non-terminals have the "name" fields set. So
-      // there's no need to check it below for "e_nrw" and "ntexp". In
-      // fact, we rely here on the fact that the "name" fields of both these
-      // variables are the same.
-      NonTerminal e_nrw = (NonTerminal) e;
-      NormalProduction ntprod = context.globals().production_table.get(e_nrw.getName());
+      // All expansions of non-terminals have the "name" fields set.
+      // So there's no need to check it below for "e_nrw" and "ntexp".
+      // We rely here on the fact that the "name" fields of both these variables are the same.
+      final NonTerminal e_nrw = (NonTerminal) e;
+      final NormalProduction ntprod = context.globals().production_table.get(e_nrw.getName());
       if (ntprod instanceof CodeProduction) {
         // nothing to do here
       } else {
         generate3R(ntprod.getExpansion(), inf);
       }
     } else if (e instanceof Choice) {
-      Choice e_nrw = (Choice) e;
-      for (Expansion element : e_nrw.getChoices()) {
+      final Choice e_nrw = (Choice) e;
+      for (final Expansion element : e_nrw.getChoices()) {
         generate3R(element, inf);
       }
     } else if (e instanceof Sequence) {
-      Sequence e_nrw = (Sequence) e;
-      // We skip the first element in the following iteration since it is the
-      // Lookahead object.
+      final Sequence e_nrw = (Sequence) e;
+      // We skip the first element in the following iteration since it is the Lookahead object.
       int cnt = inf.count;
       for (int i = 1; i < e_nrw.units.size(); i++) {
-        Expansion eseq = e_nrw.units.get(i);
+        final Expansion eseq = e_nrw.units.get(i);
         setupPhase3Builds(new Phase3Data(eseq, cnt));
         cnt -= minimumSize(eseq);
         if (cnt <= 0) {
@@ -1873,48 +1932,49 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
         }
       }
     } else if (e instanceof TryBlock) {
-      TryBlock e_nrw = (TryBlock) e;
+      final TryBlock e_nrw = (TryBlock) e;
       setupPhase3Builds(new Phase3Data(e_nrw.exp, inf.count));
     } else if (e instanceof OneOrMore) {
-      OneOrMore e_nrw = (OneOrMore) e;
+      final OneOrMore e_nrw = (OneOrMore) e;
       generate3R(e_nrw.getExpansion(), inf);
     } else if (e instanceof ZeroOrMore) {
-      ZeroOrMore e_nrw = (ZeroOrMore) e;
+      final ZeroOrMore e_nrw = (ZeroOrMore) e;
       generate3R(e_nrw.getExpansion(), inf);
     } else if (e instanceof ZeroOrOne) {
-      ZeroOrOne e_nrw = (ZeroOrOne) e;
+      final ZeroOrOne e_nrw = (ZeroOrOne) e;
       generate3R(e_nrw.getExpansion(), inf);
     }
   }
-  
+
   private static String addTokenNamespace(String token) {
-      if (token != null) {
-          if (!Options.getTokenConstantsNamespace().isEmpty()) {
-              token = Options.getTokenConstantsNamespace() + "::" + token;
-          }
+    if (token != null) {
+      if (!Options.getTokenConstantsNamespace().isEmpty()) {
+        token = Options.getTokenConstantsNamespace() + "::" + token;
       }
-      return token;
+    }
+    return token;
   }
 
   private String getTokenType() {
-      String type = "Token";
-      if (Options.getTokenClass().isEmpty()) {
-          type = "Token";
-      } else {
-          type = Options.getTokenClass();
-      }
-      
-      if (!Options.getTokenNamespace().isEmpty()) { 
-          type = Options.getTokenNamespace() + "::" + type;
-      }
-      return type;
+    String type = "Token";
+    if (Options.getTokenClass().isEmpty()) {
+      type = "Token";
+    } else {
+      type = Options.getTokenClass();
+    }
+
+    if (!Options.getTokenNamespace().isEmpty()) {
+      type = Options.getTokenNamespace() + "::" + type;
+    }
+    return type;
   }
 
+  @SuppressWarnings("unused")
   private String getTokenTypePointer() {
-      return getTokenType() + "*";
+    return getTokenType() + "*";
   }
 
-  private String genjj_3Call(Expansion e) {
+  private String genjj_3Call(final Expansion e) {
     if (internalNames.containsKey(e) && internalNames.get(e).startsWith("jj_scan_token")) {
       return internalNames.get(e);
     } else {
@@ -1922,124 +1982,142 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
     }
   }
 
-
-  private void buildPhase3Routine(Phase3Data inf, boolean recursive_call) {
-    Expansion e = inf.exp;
+  private void buildPhase3Routine(final Phase3Data inf, final boolean recursive_call) {
+    final Expansion e = inf.exp;
     Token t = null;
     if (internalNames.containsKey(e) && internalNames.get(e).startsWith("jj_scan_token")) {
       return;
     }
 
     if (!recursive_call) {
-      codeGenerator.println(" inline bool ", "jj_3" + internalNames.get(e) + "()");
-
-      codeGenerator.println(" {");
-      codeGenerator.println("    if (jj_done) return true;");
+      ccb.println("  inline bool ", "jj_3" + internalNames.get(e) + "() {");
+      ccb.println("    if (jj_done) return true;");
       if (Options.getDepthLimit() > 0) {
-        codeGenerator.println("#define __ERROR_RET__ true");
+        ccb.println("#define __ERROR_RET__ true");
       }
       genStackCheck(false);
       xsp_declared = false;
       if (Options.getDebugLookahead() && (e.parent instanceof NormalProduction)) {
-        codeGenerator.print("    ");
+        ccb.print("    ");
         if (Options.getErrorReporting()) {
-          codeGenerator.print("if (!jj_rescan) ");
+          ccb.print("if (!jj_rescan) ");
         }
-        codeGenerator.println("trace_la_call(\"" + codeGenerator.escapeToUnicode(((NormalProduction) e.parent).getLhs())
-        + "(LOOKING AHEAD...)\");");
+        ccb.println(
+            "trace_la_call(\""
+                + ccb.escapeToUnicode(((NormalProduction) e.parent).getLhs())
+                + "(LOOKING AHEAD...)\");");
         jj3_expansion = e;
       } else {
         jj3_expansion = null;
       }
     }
     if (e instanceof RegularExpression) {
-      RegularExpression e_nrw = (RegularExpression) e;
+      final RegularExpression e_nrw = (RegularExpression) e;
       if (e_nrw.label.equals("")) {
-        Object label = context.globals().names_of_tokens.get(Integer.valueOf(e_nrw.ordinal));
+        final Object label = context.globals().names_of_tokens.get(Integer.valueOf(e_nrw.ordinal));
         if (label != null) {
-          codeGenerator.println("    if (jj_scan_token(" + addTokenNamespace((String) label) + ")) " + genReturn(true));
+          indentamt += 2;
+          ccb.println(
+              "    if (jj_scan_token("
+                  + addTokenNamespace((String) label)
+                  + ")) "
+                  + genReturn(true));
+          indentamt -= 2;
         } else {
-          codeGenerator.println("    if (jj_scan_token(" + e_nrw.ordinal + ")) " + genReturn(true));
+          indentamt += 2;
+          ccb.println("    if (jj_scan_token(" + e_nrw.ordinal + ")) " + genReturn(true));
+          indentamt -= 2;
         }
       } else {
-        codeGenerator.println("    if (jj_scan_token(" + addTokenNamespace(e_nrw.label) + ")) " + genReturn(true));
+        indentamt += 2;
+        ccb.println(
+            "    if (jj_scan_token(" + addTokenNamespace(e_nrw.label) + ")) " + genReturn(true));
+        indentamt -= 2;
       }
-      // codeGenerator.genCodeLine(" if (jj_la == 0 && jj_scanpos == jj_lastpos)
-      // " + genReturn(false));
+      // codeGen.genCodeLine(" if (jj_la == 0 && jj_scanpos == jj_lastpos) " + genReturn(false));
     } else if (e instanceof NonTerminal) {
-      // All expansions of non-terminals have the "name" fields set. So
-      // there's no need to check it below for "e_nrw" and "ntexp". In
-      // fact, we rely here on the fact that the "name" fields of both these
-      // variables are the same.
-      NonTerminal e_nrw = (NonTerminal) e;
-      NormalProduction ntprod = context.globals().production_table.get(e_nrw.getName());
+      // All expansions of non-terminals have the "name" fields set.
+      // So there's no need to check it below for "e_nrw" and "ntexp".
+      // We rely here on the fact that the "name" fields of both these variables are the same.
+      final NonTerminal e_nrw = (NonTerminal) e;
+      final NormalProduction ntprod = context.globals().production_table.get(e_nrw.getName());
       if (ntprod instanceof CodeProduction) {
-        codeGenerator.println("    if (true) { jj_la = 0; jj_scanpos = jj_lastpos; " + genReturn(false) + "}");
+        ccb.println(
+            "    if (true) { jj_la = 0; jj_scanpos = jj_lastpos; " + genReturn(false) + "}");
       } else {
-        Expansion ntexp = ntprod.getExpansion();
-        // codeGenerator.genCodeLine(" if (jj_3" + ntexp.internal_name + "()) "
-        // + genReturn(true));
-        codeGenerator.println("    if (" + genjj_3Call(ntexp) + ") " + genReturn(true));
-        // codeGenerator.genCodeLine(" if (jj_la == 0 && jj_scanpos ==
-        // jj_lastpos) " + genReturn(false));
+        final Expansion ntexp = ntprod.getExpansion();
+        // codeGen.genCodeLine(" if (jj_3" + ntexp.internal_name + "()) " + genReturn(true));
+        ccb.println("    if (" + genjj_3Call(ntexp) + ") " + genReturn(true));
+        // codeGen.genCodeLine(" if (jj_la == 0 && jj_scanpos == jj_lastpos) " + genReturn(false));
       }
     } else if (e instanceof Choice) {
       Sequence nested_seq;
-      Choice e_nrw = (Choice) e;
+      final Choice e_nrw = (Choice) e;
       if (e_nrw.getChoices().size() != 1) {
         if (!xsp_declared) {
           xsp_declared = true;
-          codeGenerator.println("    Token* xsp;");
+          ccb.println("    Token* xsp;");
         }
-        codeGenerator.println("    xsp = jj_scanpos;");
+        ccb.println("    xsp = jj_scanpos;");
       }
       for (int i = 0; i < e_nrw.getChoices().size(); i++) {
         nested_seq = (Sequence) e_nrw.getChoices().get(i);
-        Lookahead la = (Lookahead) nested_seq.units.get(0);
+        final Lookahead la = (Lookahead) nested_seq.units.get(0);
         if (la.getActionTokens().size() != 0) {
           // We have semantic lookahead that must be evaluated.
           context.globals().lookaheadNeeded = true;
-          codeGenerator.println("    jj_lookingAhead = true;");
-          codeGenerator.print("    jj_semLA = ");
-          codeGenerator.printTokenSetup(la.getActionTokens().get(0));
-          for (Iterator<Token> it = la.getActionTokens().iterator(); it.hasNext();) {
+          ccb.println("    jj_lookingAhead = true;");
+          ccb.print("    jj_semLA = ");
+          ccb.printTokenSetup(la.getActionTokens().get(0));
+          for (final Iterator<Token> it = la.getActionTokens().iterator(); it.hasNext(); ) {
             t = it.next();
-            codeGenerator.printToken(t);
+            ccb.printToken(t);
           }
-          codeGenerator.printTrailingComments(t);
-          codeGenerator.println(";");
-          codeGenerator.println("    jj_lookingAhead = false;");
+          ccb.printTrailingComments(t);
+          ccb.println(";");
+          ccb.println("    jj_lookingAhead = false;");
         }
-        codeGenerator.print("    if (");
+        for (int k = 0; k < indentamt; k++) {
+          ccb.print(' ');
+        }
+        ccb.print("  if (");
         if (la.getActionTokens().size() != 0) {
-          codeGenerator.print("!jj_semLA || ");
+          ccb.print("!jj_semLA || ");
         }
         if (i != (e_nrw.getChoices().size() - 1)) {
-          // codeGenerator.genCodeLine("jj_3" + nested_seq.internal_name + "())
+          // codeGen.genCodeLine("jj_3" + nested_seq.internal_name + "())
           // {");
-          // codeGenerator.println(genjj_3Call(nested_seq) + ") {");
-          codeGenerator.println(genjj_3Call(nested_seq) + ") {");
-          codeGenerator.println("    jj_scanpos = xsp;");
+          // codeGen.println(genjj_3Call(nested_seq) + ") {");
+          ccb.println(genjj_3Call(nested_seq) + ") {");
+          indentamt += 2;
+          ccb.println("      jj_scanpos = xsp;");
         } else {
-          // codeGenerator.genCodeLine("jj_3" + nested_seq.internal_name + "())
+          // codeGen.genCodeLine("jj_3" + nested_seq.internal_name + "())
           // " + genReturn(true));
-          codeGenerator.println(genjj_3Call(nested_seq) + ") " + genReturn(true));
-          // codeGenerator.genCodeLine(" if (jj_la == 0 && jj_scanpos ==
+          ccb.print(genjj_3Call(nested_seq) + ") ");
+          indentamt += 2;
+          ccb.println(genReturn(true));
+          indentamt -= 2;
+          // codeGen.genCodeLine(" if (jj_la == 0 && jj_scanpos ==
           // jj_lastpos) " + genReturn(false));
         }
       }
-       for (int i = 1; i < e_nrw.getChoices().size(); i++) {
-       // codeGenerator.genCodeLine(" } else if (jj_la == 0 && jj_scanpos ==
-       // jj_lastpos) " + genReturn(false));
-         codeGenerator.println(" }");
-       }
+      for (int i = 1; i < e_nrw.getChoices().size(); i++) {
+        // codeGen.genCodeLine(" } else if (jj_la == 0 && jj_scanpos ==
+        // jj_lastpos) " + genReturn(false));
+        indentamt -= 2;
+        for (int k = 0; k < indentamt; k++) {
+          ccb.print(' ');
+        }
+        ccb.println("  }");
+      }
     } else if (e instanceof Sequence) {
-      Sequence e_nrw = (Sequence) e;
+      final Sequence e_nrw = (Sequence) e;
       // We skip the first element in the following iteration since it is the
       // Lookahead object.
       int cnt = inf.count;
       for (int i = 1; i < e_nrw.units.size(); i++) {
-        Expansion eseq = e_nrw.units.get(i);
+        final Expansion eseq = e_nrw.units.get(i);
         buildPhase3Routine(new Phase3Data(eseq, cnt), true);
 
         // System.out.println("minimumSize: line: " + eseq.line + ", column: " +
@@ -2052,75 +2130,75 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
         }
       }
     } else if (e instanceof TryBlock) {
-      TryBlock e_nrw = (TryBlock) e;
+      final TryBlock e_nrw = (TryBlock) e;
       buildPhase3Routine(new Phase3Data(e_nrw.exp, inf.count), true);
     } else if (e instanceof OneOrMore) {
       if (!xsp_declared) {
         xsp_declared = true;
-        codeGenerator.println("    Token* xsp;");
+        ccb.println("    Token* xsp;");
       }
-      OneOrMore e_nrw = (OneOrMore) e;
-      Expansion nested_e = e_nrw.getExpansion();
-      // codeGenerator.genCodeLine(" if (jj_3" + nested_internalNames.get(e) +
+      final OneOrMore e_nrw = (OneOrMore) e;
+      final Expansion nested_e = e_nrw.getExpansion();
+      // codeGen.genCodeLine(" if (jj_3" + nested_internalNames.get(e) +
       // "()) " + genReturn(true));
-      codeGenerator.println("    if (" + genjj_3Call(nested_e) + ") " + genReturn(true));
-      // codeGenerator.genCodeLine(" if (jj_la == 0 && jj_scanpos == jj_lastpos)
+      ccb.println("    if (" + genjj_3Call(nested_e) + ") " + genReturn(true));
+      // codeGen.genCodeLine(" if (jj_la == 0 && jj_scanpos == jj_lastpos)
       // " + genReturn(false));
-      codeGenerator.println("    while (true) {");
-      codeGenerator.println("      xsp = jj_scanpos;");
-      // codeGenerator.genCodeLine(" if (jj_3" + nested_internalNames.get(e) +
+      ccb.println("    while (true) {");
+      ccb.println("      xsp = jj_scanpos;");
+      // codeGen.genCodeLine(" if (jj_3" + nested_internalNames.get(e) +
       // "()) { jj_scanpos = xsp; break; }");
-      codeGenerator.println("      if (" + genjj_3Call(nested_e) + ") { jj_scanpos = xsp; break; }");
-      // codeGenerator.genCodeLine(" if (jj_la == 0 && jj_scanpos == jj_lastpos)
+      ccb.println("      if (" + genjj_3Call(nested_e) + ") { jj_scanpos = xsp; break; }");
+      // codeGen.genCodeLine(" if (jj_la == 0 && jj_scanpos == jj_lastpos)
       // " + genReturn(false));
-      codeGenerator.println("    }");
+      ccb.println("    }");
     } else if (e instanceof ZeroOrMore) {
       if (!xsp_declared) {
         xsp_declared = true;
-        codeGenerator.println("    Token* xsp;");
+        ccb.println("    Token* xsp;");
       }
-      ZeroOrMore e_nrw = (ZeroOrMore) e;
-      Expansion nested_e = e_nrw.getExpansion();
-      codeGenerator.println("    while (true) {");
-      codeGenerator.println("      xsp = jj_scanpos;");
-      // codeGenerator.genCodeLine(" if (jj_3" + nested_internalNames.get(e) +
+      final ZeroOrMore e_nrw = (ZeroOrMore) e;
+      final Expansion nested_e = e_nrw.getExpansion();
+      ccb.println("    while (true) {");
+      ccb.println("      xsp = jj_scanpos;");
+      // codeGen.genCodeLine(" if (jj_3" + nested_internalNames.get(e) +
       // "()) { jj_scanpos = xsp; break; }");
-      codeGenerator.println("      if (" + genjj_3Call(nested_e) + ") { jj_scanpos = xsp; break; }");
-      // codeGenerator.genCodeLine(" if (jj_la == 0 && jj_scanpos == jj_lastpos)
+      ccb.println("      if (" + genjj_3Call(nested_e) + ") { jj_scanpos = xsp; break; }");
+      // codeGen.genCodeLine(" if (jj_la == 0 && jj_scanpos == jj_lastpos)
       // " + genReturn(false));
-      codeGenerator.println("    }");
+      ccb.println("    }");
     } else if (e instanceof ZeroOrOne) {
       if (!xsp_declared) {
         xsp_declared = true;
-        codeGenerator.println("    Token* xsp;");
+        ccb.println("    Token* xsp;");
       }
-      ZeroOrOne e_nrw = (ZeroOrOne) e;
-      Expansion nested_e = e_nrw.getExpansion();
-      codeGenerator.println("    xsp = jj_scanpos;");
-      // codeGenerator.genCodeLine(" if (jj_3" + nested_internalNames.get(e) +
+      final ZeroOrOne e_nrw = (ZeroOrOne) e;
+      final Expansion nested_e = e_nrw.getExpansion();
+      ccb.println("    xsp = jj_scanpos;");
+      // codeGen.genCodeLine(" if (jj_3" + nested_internalNames.get(e) +
       // "()) jj_scanpos = xsp;");
-      codeGenerator.println("    if (" + genjj_3Call(nested_e) + ") jj_scanpos = xsp;");
-      // codeGenerator.genCodeLine(" else if (jj_la == 0 && jj_scanpos ==
+      ccb.println("    if (" + genjj_3Call(nested_e) + ") jj_scanpos = xsp;");
+      // codeGen.genCodeLine(" else if (jj_la == 0 && jj_scanpos ==
       // jj_lastpos) " + genReturn(false));
     }
     if (!recursive_call) {
-      codeGenerator.println("    " + genReturn(false));
+      indentamt += 2;
+      ccb.println("    " + genReturn(false));
       if (Options.getDepthLimit() > 0) {
-        codeGenerator.println("#undef __ERROR_RET__");
+        ccb.println("#undef __ERROR_RET__");
       }
-      codeGenerator.println("  }");
-      codeGenerator.println("");
+      indentamt -= 2;
+      ccb.println("  }");
+      ccb.println();
     }
   }
 
-  private int minimumSize(Expansion e) {
+  private int minimumSize(final Expansion e) {
     return minimumSize(e, Integer.MAX_VALUE);
   }
 
-  /*
-   * Returns the minimum number of tokens that can parse to this expansion.
-   */
-  private int minimumSize(Expansion e, int oldMin) {
+  /** Returns the minimum number of tokens that can parse to this expansion. */
+  private int minimumSize(final Expansion e, final int oldMin) {
     int retval = 0; // should never be used. Will be bad if it is.
     if (e.inMinimumSize) {
       // recursive search for minimum size unnecessary.
@@ -2130,24 +2208,24 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
     if (e instanceof RegularExpression) {
       retval = 1;
     } else if (e instanceof NonTerminal) {
-      NonTerminal e_nrw = (NonTerminal) e;
-      NormalProduction ntprod = context.globals().production_table.get(e_nrw.getName());
+      final NonTerminal e_nrw = (NonTerminal) e;
+      final NormalProduction ntprod = context.globals().production_table.get(e_nrw.getName());
       if (ntprod instanceof CodeProduction) {
         retval = Integer.MAX_VALUE;
         // Make caller think this is unending (for we do not go beyond JAVACODE
         // during
         // phase3 execution).
       } else {
-        Expansion ntexp = ntprod.getExpansion();
+        final Expansion ntexp = ntprod.getExpansion();
         retval = minimumSize(ntexp);
       }
     } else if (e instanceof Choice) {
       int min = oldMin;
       Expansion nested_e;
-      Choice e_nrw = (Choice) e;
+      final Choice e_nrw = (Choice) e;
       for (int i = 0; (min > 1) && (i < e_nrw.getChoices().size()); i++) {
         nested_e = e_nrw.getChoices().get(i);
-        int min1 = minimumSize(nested_e, min);
+        final int min1 = minimumSize(nested_e, min);
         if (min > min1) {
           min = min1;
         }
@@ -2155,12 +2233,12 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
       retval = min;
     } else if (e instanceof Sequence) {
       int min = 0;
-      Sequence e_nrw = (Sequence) e;
+      final Sequence e_nrw = (Sequence) e;
       // We skip the first element in the following iteration since it is the
       // Lookahead object.
       for (int i = 1; i < e_nrw.units.size(); i++) {
-        Expansion eseq = e_nrw.units.get(i);
-        int mineseq = minimumSize(eseq);
+        final Expansion eseq = e_nrw.units.get(i);
+        final int mineseq = minimumSize(eseq);
         if ((min == Integer.MAX_VALUE) || (mineseq == Integer.MAX_VALUE)) {
           min = Integer.MAX_VALUE; // Adding infinity to something results in
           // infinity.
@@ -2173,10 +2251,10 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
       }
       retval = min;
     } else if (e instanceof TryBlock) {
-      TryBlock e_nrw = (TryBlock) e;
+      final TryBlock e_nrw = (TryBlock) e;
       retval = minimumSize(e_nrw.exp);
     } else if (e instanceof OneOrMore) {
-      OneOrMore e_nrw = (OneOrMore) e;
+      final OneOrMore e_nrw = (OneOrMore) e;
       retval = minimumSize(e_nrw.getExpansion());
     } else if (e instanceof ZeroOrMore) {
       retval = 0;
@@ -2191,23 +2269,46 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
     return retval;
   }
 
-  private void build(CppCodeBuilder codeGenerator) {
+  private void genStackCheck(final boolean voidReturn) {
+    if (Options.getDepthLimit() > 0) {
+      if (!voidReturn) {
+        ccb.println("if (jj_depth_error) { return __ERROR_RET__; }");
+      } else {
+        ccb.println("if (jj_depth_error) { return; }");
+      }
+      ccb.println("__jj_depth_inc __jj_depth_counter(this);");
+      ccb.println("if (jj_depth > " + Options.getDepthLimit() + ") {");
+      ccb.println("  jj_depth_error = true;");
+      ccb.println("  jj_consume_token(-1);");
+      ccb.println("  errorHandler->parseError(token, getToken(1), __FUNCTION__), hasError = true;");
+      if (!voidReturn) {
+        ccb.println("  return __ERROR_RET__;"); // Non-recoverable
+        // error
+      } else {
+        ccb.println("  return;"); // Non-recoverable error
+      }
+      ccb.println("}");
+    }
+  }
+
+  private void build() {
     NormalProduction p;
     CppCodeProduction cp;
 
-    this.codeGenerator = codeGenerator;
-    for (Iterator<NormalProduction> prodIterator = context.globals().bnfproductions.iterator(); prodIterator.hasNext();) {
+    for (final Iterator<NormalProduction> prodIterator =
+            context.globals().bnfproductions.iterator();
+        prodIterator.hasNext(); ) {
       p = prodIterator.next();
       if (p instanceof CppCodeProduction) {
         cp = (CppCodeProduction) p;
 
-        StringBuffer sig = new StringBuffer();
+        final StringBuffer sig = new StringBuffer();
         String ret, params;
         Token t = null;
 
         p.getLhs();
 
-        for (Token element : p.getReturnTypeTokens()) {
+        for (final Token element : p.getReturnTypeTokens()) {
           t = element;
           CodeBuilder.toString(t);
           sig.append(t.toString());
@@ -2215,44 +2316,49 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
         }
 
         if (t != null) {
-          codeGenerator.getTrailingComments(t);
+          ccb.getTrailingComments(t);
         }
         ret = sig.toString();
 
         sig.setLength(0);
         sig.append("(");
         if (p.getParameterListTokens().size() != 0) {
-          codeGenerator.printTokenSetup(p.getParameterListTokens().get(0));
-          for (Iterator<Token> it = p.getParameterListTokens().iterator(); it.hasNext();) {
+          ccb.printTokenSetup(p.getParameterListTokens().get(0));
+          for (final Iterator<Token> it = p.getParameterListTokens().iterator(); it.hasNext(); ) {
             t = it.next();
             sig.append(CodeBuilder.toString(t));
           }
-          sig.append(codeGenerator.getTrailingComments(t));
+          sig.append(ccb.getTrailingComments(t));
         }
         sig.append(")");
         params = sig.toString();
 
         // For now, just ignore comments
-        codeGenerator.generateMethodDefHeader(ret, context.globals().cu_name, p.getLhs() + params, sig.toString());
-        codeGenerator.println(" {");
+        ccb.generateMethodDefHeader(
+            ret, context.globals().cu_name, p.getLhs() + params, sig.toString());
+        ccb.println(" {");
         if (Options.getDebugParser()) {
-          codeGenerator.println("");
-          codeGenerator.println("    JJEnter<std::function<void()>> jjenter([this]() {trace_call  (\""
-              + codeGenerator.escapeToUnicode(cp.getLhs()) + "\"); });");
-          codeGenerator.println("    JJExit <std::function<void()>> jjexit ([this]() {trace_return(\""
-              + codeGenerator.escapeToUnicode(cp.getLhs()) + "\"); });");
-          codeGenerator.println("    try {");
+          ccb.println();
+          ccb.println(
+              "    JJEnter<std::function<void()>> jjenter([this]() {trace_call  (\""
+                  + ccb.escapeToUnicode(cp.getLhs())
+                  + "\"); });");
+          ccb.println(
+              "    JJExit <std::function<void()>> jjexit ([this]() {trace_return(\""
+                  + ccb.escapeToUnicode(cp.getLhs())
+                  + "\"); });");
+          ccb.println("    try {");
         }
         if (cp.getCodeTokens().size() != 0) {
-          codeGenerator.printTokenSetup(cp.getCodeTokens().get(0));
-          codeGenerator.printTokenList(cp.getCodeTokens());
+          ccb.printTokenSetup(cp.getCodeTokens().get(0));
+          ccb.printTokenList(cp.getCodeTokens());
         }
-        codeGenerator.println("");
+        ccb.println();
         if (Options.getDebugParser()) {
-          codeGenerator.println("    } catch(...) { }");
+          ccb.println("    } catch(...) { }");
         }
-        codeGenerator.println("  }");
-        codeGenerator.println("");
+        ccb.println("  }");
+        ccb.println();
       } else if (p instanceof JavaCodeProduction) {
         context.errors().semantic_error("Cannot use JAVACODE productions with C++ output (yet).");
         continue;
@@ -2261,8 +2367,8 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
       }
     }
 
-    codeGenerator.switchToIncludeFile();
-    for (Lookahead element : phase2list) {
+    ccb.switchToIncludeFile();
+    for (final Lookahead element : phase2list) {
       buildPhase2Routine(element);
     }
 
@@ -2274,33 +2380,28 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
       }
     }
 
-    for (Enumeration<Phase3Data> enumeration = phase3table.elements(); enumeration.hasMoreElements();) {
+    for (final Enumeration<Phase3Data> enumeration = phase3table.elements();
+        enumeration.hasMoreElements(); ) {
       buildPhase3Routine(enumeration.nextElement(), false);
     }
-    codeGenerator.switchToMainFile();
+    ccb.switchToMainFile();
   }
 }
 
-
-/**
- * This class stores information to pass from phase 2 to phase 3.
- */
+/** This class stores information to pass from phase 2 to phase 3. */
 class Phase3Data {
 
-  /*
-   * This is the expansion to generate the jj3 method for.
-   */
+  /** The expansion to generate the jj3 method for. */
   Expansion exp;
 
-  /*
-   * This is the number of tokens that can still be consumed. This number is
-   * used to limit the number of jj3 methods generated.
+  /**
+   * The number of tokens that can still be consumed.<br>
+   * This number is used to limit the number of jj3 methods generated.
    */
   int count;
 
-  Phase3Data(Expansion e, int c) {
+  Phase3Data(final Expansion e, final int c) {
     exp = e;
     count = c;
   }
 }
-

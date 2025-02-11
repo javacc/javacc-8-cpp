@@ -1,14 +1,46 @@
-
+#if PRINT_LICENSE
+/*
+ * Copyright (c) 2020-2025, Sreeni Viswanadha <sreeni@viswanadha.net>.
+ * Copyright (c) 2024-2025, Marc Mazas <mazas.marc@gmail.com>.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ *     * Redistributions of source code must retain the above copyright notice,
+ *       this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above copyright
+ *       notice, this list of conditions and the following disclaimer in the
+ *       documentation and/or other materials provided with the distribution.
+ *     * Neither the names of of the copyright holders nor the names of its
+ *       contributors may be used to endorse or promote products derived from
+ *       this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
+ * THE POSSIBILITY OF SUCH DAMAGE.
+ */
+#fi
 namespace {
+
 template <class T>
 void ArrayCopy(T* src, int src_offset, T* dest, int dest_offset, int len) {
- for (int i = 0; i < len; i++) {
-   dest[dest_offset + i] = src[src_offset + i];
- }
+  for (int i = 0; i < len; i++) {
+    dest[dest_offset + i] = src[src_offset + i];
+  }
 }
 
 class StringReaderStream : public ReaderStream {
- public:
+
+public:
   StringReaderStream(const JJString& str) : str_(str), cur_(0), max_(str.size()) {}
   virtual size_t read(JJChar *bufptr, int offset, size_t len) {
     size_t count = str_.copy(bufptr + offset, len > max_ ? max_ : len, cur_);
@@ -21,151 +53,32 @@ class StringReaderStream : public ReaderStream {
     return max_ == 0;
   }
 
- private:
+private:
   const JJString str_;
   size_t cur_;
   size_t max_;
-};
-}
+
+}; // end class StringReaderStream
+
+} // end first namespace
 
 #if NAMESPACE
 namespace ${NAMESPACE_OPEN}
 #fi
-void DefaultCharStream::init() {
-  bufline        	= nullptr;
-  bufcolumn      	= nullptr;
-  buffer         	= nullptr;
-  bufpos			= 0;
-  bufsize			= 0;
-  tokenBegin		= 0;
-  column			= 0;
-  line				= 0;
-  prevCharIsCR		= false;
-  prevCharIsLF		= false;
-  available			= 0;
-  maxNextCharInd	= 0;
-  inBuf				= 0;
-  tabSize			= 8;
-  trackLineColumn	= true;
-  inputStream    	= nullptr;
-  deleteStream		= false;
-}
-DefaultCharStream::DefaultCharStream(const JJChar *buf, int sz, int startline, int startcolumn, int buffersize)
-{
-  init();
-  ReInit(JJString(buf, sz), startline, startcolumn, buffersize);
-}
 
-DefaultCharStream::DefaultCharStream(const JJChar *buf, int sz, int startline, int startcolumn)
-{
-  init();
-  ReInit(JJString(buf, sz), startline, startcolumn, InitialBufferSize);
-}
-
-DefaultCharStream::DefaultCharStream(const JJString& str, int startline, int startcolumn, int buffersize)
-{
-  init();
-  ReInit(str, startline, startcolumn, buffersize);
-}
-
-DefaultCharStream::DefaultCharStream(const JJString& str, int startline, int startcolumn)
-{
-  init();
-  ReInit(str, startline, startcolumn, InitialBufferSize);
-}
-
-DefaultCharStream::DefaultCharStream(ReaderStream *input_stream, int startline, int startcolumn, int buffersize)
-{
-  init();
-  ReInit(input_stream, startline, startcolumn, buffersize);
-}
-
-DefaultCharStream::DefaultCharStream(ReaderStream *input_stream, int startline, int startcolumn)
-{
-  init();
-  ReInit(input_stream, startline, startcolumn, InitialBufferSize);
-}
-
-DefaultCharStream::DefaultCharStream(ReaderStream *input_stream)
-{
-  init();
-  ReInit(input_stream, 1, 1, InitialBufferSize);
-}
-
-void DefaultCharStream::ReInit(const JJString& str, int startline, int startcolumn) {
-  init();
-  ReInit(str, startline, startcolumn, InitialBufferSize);
-}
-
-DefaultCharStream::~DefaultCharStream() {
-  if (deleteStream) {
-   delete inputStream;
-  }
-  deleteBuffers();
-}
-
-
-void DefaultCharStream::ReInit(ReaderStream *input_stream, int startline, int startcolumn) {
-  ReInit(input_stream, startline, startcolumn, InitialBufferSize);
-}
- 
-void DefaultCharStream::ReInit(ReaderStream *input_stream) {
-  ReInit(input_stream, 1, 1, InitialBufferSize);
-} 
-
-#if KEEP_LINE_COLUMN
-int DefaultCharStream::getBufcolumn(int pos) {
-  if (trackLineColumn && pos>=0) {
-    return bufcolumn[pos];
-  } else {
-    return -1;
-  }
-}
-
-int DefaultCharStream::getBufline(int pos) {
-  if (trackLineColumn && pos>=0) {
-    return bufline[pos];
-  } else {
-    return -1;
-  }
-}
-#fi
-
-void DefaultCharStream::ReInit(const JJString& str, int startline, int startcolumn, int buffersize) {
-  StringReaderStream *stream = new StringReaderStream(str);
-  ReInit(stream, startline, startcolumn, buffersize);
-  deleteStream = true;
-}
-
-void DefaultCharStream::ReInit(ReaderStream *input_stream, int startline, int startcolumn, int buffersize) {
-  if (deleteStream) {
-   delete inputStream;
-  }
-
-  if (buffer) {
-    deleteBuffers();
-  }
-
-  available = bufsize = buffersize;
-  buffer = new JJChar[buffersize];
-  bufline = new int[buffersize];
-  bufcolumn = new int[buffersize];
-
-  column = startcolumn - 1;
-  inputStream = input_stream;
-  line = startline;
-  prevCharIsLF = prevCharIsCR = false;
-  tokenBegin = inBuf = maxNextCharInd = 0;
-  bufpos = -1;
-  deleteStream = false;
-}
-
-void DefaultCharStream::backup(int amount) {
-  inBuf += amount; bufpos -= amount;
-  if (bufpos < 0) {
-    bufpos += bufsize;
-  }
-}
+/*
+ * The class definitions generated by Javacc/cpp (by CppCodeGenerator.java with
+ *  DefaultCharStream.cc.template) that implement the CharStream interface for a character stream
+ *  that maintains line and column number positions of the characters.
+ * It also has the capability to backup the stream to some extent.
+ * An implementation of this interface is used in the TokenManager implementation generated by
+ *  JavaCC.
+ * All the methods except backup() can be implemented in any fashion.
+ * backup() needs to be implemented correctly for the correct operation of the lexer.
+ * Rest of the methods are all used to get information like line number, column number
+ *  and the String that constitutes a token and are not used by the lexer.
+ * Hence their implementation won't affect the generated lexer's operation.
+ */
 
 JJChar DefaultCharStream::beginToken() {
   tokenBegin = -1;
@@ -187,22 +100,34 @@ JJChar DefaultCharStream::readChar() {
   if (bufpos >= maxNextCharInd) {
     fillBuff();
   }
-
   JJChar c = buffer[bufpos];
-
 #if KEEP_LINE_COLUMN
-  if (trackLineColumn) {
-    updateLineColumn(c);
-  }
+  //if (trackLineColumn) {
+  updateLineColumn(c);
+  //}
 #fi
   return c;
 }
 
+void DefaultCharStream::backup(int amount) {
+  inBuf += amount; bufpos -= amount;
+  if (bufpos < 0) {
+    bufpos += bufsize;
+  }
+}
+
+void DefaultCharStream::deleteBuffers() {
+  delete[] buffer;
+  delete[] bufline;
+  delete[] bufcolumn;
+}
+
 JJString DefaultCharStream::getImage() {
-  if (bufpos >= tokenBegin)
+  if (bufpos >= tokenBegin) {
     return JJString(buffer + tokenBegin, bufpos - tokenBegin + 1);
-  else
+  } else {
     return JJString(buffer + tokenBegin, bufsize - tokenBegin).append(buffer, bufpos + 1);
+    }
 }
 
 JJString DefaultCharStream::getSuffix(int len) {
@@ -212,14 +137,119 @@ JJString DefaultCharStream::getSuffix(int len) {
   return JJString(buffer + bufsize - (len - bufpos - 1), len - bufpos - 1).append(buffer, bufpos + 1);
 }
 
+#if KEEP_LINE_COLUMN
+int DefaultCharStream::getBufline(int pos) {
+  if (/*trackLineColumn &&*/ pos>=0) {
+    return bufline[pos];
+  } else {
+    return -1;
+  }
+}
+
+int DefaultCharStream::getBufcolumn(int pos) {
+  if (/*trackLineColumn &&*/ pos>=0) {
+    return bufcolumn[pos];
+  } else {
+    return -1;
+  }
+}
+
+#fi
 bool DefaultCharStream::endOfInput() {
   return inBuf == 0 && bufpos + 1 >= maxNextCharInd && inputStream->endOfInput();
 }
 
-void DefaultCharStream::deleteBuffers() {
-  delete[] buffer;
-  delete[] bufline;
-  delete[] bufcolumn;
+DefaultCharStream::~DefaultCharStream() {
+  if (deleteStream) {
+   delete inputStream;
+  }
+  deleteBuffers();
+}
+
+DefaultCharStream::DefaultCharStream(const JJChar *buf, int sz,
+                                     int startline, int startcolumn, int buffersize) {
+  init();
+  ReInit(JJString(buf, sz), startline, startcolumn, buffersize);
+}
+
+DefaultCharStream::DefaultCharStream(const JJChar *buf,
+                                     int sz, int startline, int startcolumn) {
+  init();
+  ReInit(JJString(buf, sz), startline, startcolumn, InitialBufferSize);
+}
+
+DefaultCharStream::DefaultCharStream(const JJString& str,
+                                     int startline, int startcolumn, int buffersize) {
+  init();
+  ReInit(str, startline, startcolumn, buffersize);
+}
+
+DefaultCharStream::DefaultCharStream(const JJString& str,
+                                     int startline, int startcolumn) {
+  init();
+  ReInit(str, startline, startcolumn, InitialBufferSize);
+}
+
+DefaultCharStream::DefaultCharStream(ReaderStream *input_stream,
+                                     int startline, int startcolumn, int buffersize) {
+  init();
+  ReInit(input_stream, startline, startcolumn, buffersize);
+}
+
+DefaultCharStream::DefaultCharStream(ReaderStream *input_stream,
+                                     int startline, int startcolumn) {
+  init();
+  ReInit(input_stream, startline, startcolumn, InitialBufferSize);
+}
+
+DefaultCharStream::DefaultCharStream(ReaderStream *input_stream) {
+  init();
+  ReInit(input_stream, 1, 1, InitialBufferSize);
+}
+
+void DefaultCharStream::ReInit(const JJString& str,
+                               int startline, int startcolumn) {
+  init();
+  ReInit(str, startline, startcolumn, InitialBufferSize);
+}
+
+void DefaultCharStream::ReInit(ReaderStream *input_stream, int startline, int startcolumn) {
+  ReInit(input_stream, startline, startcolumn, InitialBufferSize);
+}
+
+void DefaultCharStream::ReInit(ReaderStream *input_stream) {
+  ReInit(input_stream, 1, 1, InitialBufferSize);
+}
+
+void DefaultCharStream::ReInit(const JJString& str,
+                               int startline, int startcolumn, int buffersize) {
+  StringReaderStream *stream = new StringReaderStream(str);
+  ReInit(stream, startline, startcolumn, buffersize);
+  deleteStream = true;
+}
+
+void DefaultCharStream::ReInit(ReaderStream *input_stream,
+                               int startline, int startcolumn, int buffersize) {
+  if (deleteStream) {
+   delete inputStream;
+  }
+  if (buffer) {
+    deleteBuffers();
+  }
+  inputStream  = input_stream;
+
+  deleteStream = false;
+  available    = bufsize = buffersize;
+  tokenBegin   = inBuf = maxNextCharInd = 0;
+  bufpos       = -1;
+
+  buffer       = new JJChar[buffersize];
+
+  bufline      = new int[buffersize];
+  bufcolumn    = new int[buffersize];
+  line         = startline;
+  column       = startcolumn - 1;
+  prevCharIsLF = prevCharIsCR = false;
 }
 
 void DefaultCharStream::adjustBeginLineColumn(int newLine, int newCol) {
@@ -260,6 +290,30 @@ void DefaultCharStream::adjustBeginLineColumn(int newLine, int newCol) {
 
   line = bufline[j];
   column = bufcolumn[j];
+}
+
+void DefaultCharStream::init() {
+  inputStream     = nullptr;
+  deleteStream    = false;
+
+  bufsize         = 0;
+  available       = 0;
+  tokenBegin      = 0;
+  bufpos          = 0;
+
+  buffer          = nullptr;
+  maxNextCharInd  = 0;
+  inBuf           = 0;
+
+  //trackLineColumn = true;
+  bufline         = nullptr;
+  bufcolumn       = nullptr;
+  line            = 0;
+  column          = 0;
+  prevCharIsCR    = false;
+  prevCharIsLF    = false;
+
+  tabSize         = 1;
 }
 
 void DefaultCharStream::expandBuff(bool wrapAround) {
@@ -311,7 +365,6 @@ void DefaultCharStream::fillBuff() {
       available = tokenBegin;
     }
   }
-
   size_t i = inputStream->read(buffer, maxNextCharInd, available - maxNextCharInd);
   if (i > 0) {
     maxNextCharInd += i;
@@ -339,7 +392,6 @@ void DefaultCharStream::updateLineColumn(JJChar c) {
       line++;
     }
   }
-
   switch (c) {
     case '\r' :
       prevCharIsCR = true;
@@ -354,11 +406,10 @@ void DefaultCharStream::updateLineColumn(JJChar c) {
     default :
       break;
   }
-
   bufline[bufpos] = line;
   bufcolumn[bufpos] = column;
 }
 
 #if NAMESPACE
-${NAMESPACE_CLOSE}
+${NAMESPACE_CLOSE} // end user namespace
 #fi

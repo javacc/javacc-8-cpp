@@ -1,149 +1,106 @@
-<DEFAULT>
-  Current character: 'a' at 1:1
+<DEFAULT> Current input char: 'a' at 1:1
 No string literal start with char: 'a'
 Starting NFA with start state: 0
-  Current character: 'a'
-Looking to move from state: 0 for: <Id>
-state=0 vectorindex=1 bitpattern=8589934592 jjChars[state][vectorIndex]=576460743847706622
-Found a match of kind:9; kind: <Id> using the first: 0 characters.
-  Current character: 'a'
-Looking to move from state: 1 for: <Id>
-state=1 vectorindex=1 bitpattern=8589934592 jjChars[state][vectorIndex]=576460743847706622
-Found a match of kind:9; kind: <Id> using the first: 1 characters.
-  Current character: ' '
-Looking to move from state: 1 for: <Id>
-state=1 vectorindex=0 bitpattern=4294967296 jjChars[state][vectorIndex]=287984085547089920
+Cur char: 'a'
+Looking to move from state: 0 <Id>
+Found a match of kind: 9 [<Id>] using the first: 0 characters
+Cur char: 'a'
+Looking to move from state: 1 <Id>
+Found a match of kind: 9 [<Id>] using the first: 1 characters
+Cur char: ' '
+Looking to move from state: 1 <Id>
 Done with NFA at pos: 2
-Returning token: 'aa' 
-<DEFAULT>
-  Current character: ' ' at 1:3
-Looking for string literal match of kind:1 token image: ' '
-  Current character: ' '
-  Currently matched the first: 1 chars as kind: 1,with image:  
+Returning token: 'aa'
+<DEFAULT> Current input char: ' ' at 1:3
+Looking for string literal match of kind: 1 " "
+Cur char: ' '
+Currently matched the first: 1 chars as kind: 1 " "
 No NFA state at pos: 2
-Found a SKIP match.
-<DEFAULT>
-  Current character: '-' at 1:4
-Looking for string literal match of kind:7 token image: '--'
-  Current character: '-'
-  Current character: '-'
-  Currently matched the first: 2 chars as kind: 7,with image: --
+Found a SKIP match
+<DEFAULT> Current input char: '-' at 1:4
+Looking for string literal match of kind: 7 "--"
+Cur char: '-'
+Cur char: '-'
+Currently matched the first: 2 chars as kind: 7 "--"
 No NFA state at pos: 3
-Found a SKIP match.
-<LineComment>
-  Current character: ' ' at 1:6
+Found a SKIP match
+<LineComment> Current input char: ' ' at 1:6
 No string literal start with char: ' '
 Starting NFA with start state: 9
-  Current character: ' '
-Looking to move from state: 6 for: <UNKNOWN>
-state=6 vectorindex=0 bitpattern=4294967296 jjChars[state][vectorIndex]=35184372088832
-Looking to move from state: 5 for: <token of kind 8>
-state=5 vectorindex=0 bitpattern=4294967296 jjChars[state][vectorIndex]=9216
-Looking to move from state: 4 for: <UNKNOWN>
-state=4 vectorindex=0 bitpattern=4294967296 jjChars[state][vectorIndex]=8192
-Looking to move from state: 2 for: <token of kind 8>
-state=2 vectorindex=0 bitpattern=4294967296 jjChars[state][vectorIndex]=18446708889337453567
-Found a match of kind:8; kind: <token of kind 8> using the first: 0 characters.
-Looking to move from state: 9 for: <UNKNOWN>
-state=9 vectorindex=0 bitpattern=4294967296 jjChars[state][vectorIndex]=0
-  Current character: 'o'
-Looking to move from state: 6 for: <UNKNOWN>
-state=6 vectorindex=1 bitpattern=140737488355328 jjChars[state][vectorIndex]=0
-Looking to move from state: 5 for: <token of kind 8>
-state=5 vectorindex=1 bitpattern=140737488355328 jjChars[state][vectorIndex]=0
-Looking to move from state: 4 for: <UNKNOWN>
-state=4 vectorindex=1 bitpattern=140737488355328 jjChars[state][vectorIndex]=0
-Looking to move from state: 2 for: <token of kind 8>
-state=2 vectorindex=1 bitpattern=140737488355328 jjChars[state][vectorIndex]=18446744073709551615
-Found a match of kind:8; kind: <token of kind 8> using the first: 1 characters.
-  Current character: '-'
-Looking to move from state: 6 for: <UNKNOWN>
-state=6 vectorindex=0 bitpattern=35184372088832 jjChars[state][vectorIndex]=35184372088832
-Looking to move from state: 5 for: <token of kind 8>
-state=5 vectorindex=0 bitpattern=35184372088832 jjChars[state][vectorIndex]=9216
-Looking to move from state: 4 for: <UNKNOWN>
-state=4 vectorindex=0 bitpattern=35184372088832 jjChars[state][vectorIndex]=8192
-Looking to move from state: 2 for: <token of kind 8>
-state=2 vectorindex=0 bitpattern=35184372088832 jjChars[state][vectorIndex]=18446708889337453567
-  Current character: 'i'
-Looking to move from state: 8 for: <token of kind 8>
-state=8 vectorindex=1 bitpattern=2199023255552 jjChars[state][vectorIndex]=0
-Looking to move from state: 7 for: <UNKNOWN>
-state=7 vectorindex=1 bitpattern=2199023255552 jjChars[state][vectorIndex]=0
-Looking to move from state: 5 for: <token of kind 8>
-state=5 vectorindex=1 bitpattern=2199023255552 jjChars[state][vectorIndex]=0
-Looking to move from state: 2 for: <token of kind 8>
-state=2 vectorindex=1 bitpattern=2199023255552 jjChars[state][vectorIndex]=18446744073709551615
-Found a match of kind:8; kind: <token of kind 8> using the first: 3 characters.
-  Current character: ' '
-Looking to move from state: 6 for: <UNKNOWN>
-state=6 vectorindex=0 bitpattern=4294967296 jjChars[state][vectorIndex]=35184372088832
-Looking to move from state: 5 for: <token of kind 8>
-state=5 vectorindex=0 bitpattern=4294967296 jjChars[state][vectorIndex]=9216
-Looking to move from state: 4 for: <UNKNOWN>
-state=4 vectorindex=0 bitpattern=4294967296 jjChars[state][vectorIndex]=8192
-Looking to move from state: 2 for: <token of kind 8>
-state=2 vectorindex=0 bitpattern=4294967296 jjChars[state][vectorIndex]=18446708889337453567
-Found a match of kind:8; kind: <token of kind 8> using the first: 4 characters.
-  Current character: '-'
-Looking to move from state: 6 for: <UNKNOWN>
-state=6 vectorindex=0 bitpattern=35184372088832 jjChars[state][vectorIndex]=35184372088832
-Looking to move from state: 5 for: <token of kind 8>
-state=5 vectorindex=0 bitpattern=35184372088832 jjChars[state][vectorIndex]=9216
-Looking to move from state: 4 for: <UNKNOWN>
-state=4 vectorindex=0 bitpattern=35184372088832 jjChars[state][vectorIndex]=8192
-Looking to move from state: 2 for: <token of kind 8>
-state=2 vectorindex=0 bitpattern=35184372088832 jjChars[state][vectorIndex]=18446708889337453567
-  Current character: '-'
-Looking to move from state: 8 for: <token of kind 8>
-state=8 vectorindex=0 bitpattern=35184372088832 jjChars[state][vectorIndex]=35184372088832
-Found a match of kind:8; kind: <token of kind 8> using the first: 6 characters.
-Looking to move from state: 7 for: <UNKNOWN>
-state=7 vectorindex=0 bitpattern=35184372088832 jjChars[state][vectorIndex]=8192
-Looking to move from state: 5 for: <token of kind 8>
-state=5 vectorindex=0 bitpattern=35184372088832 jjChars[state][vectorIndex]=9216
-Looking to move from state: 2 for: <token of kind 8>
-state=2 vectorindex=0 bitpattern=35184372088832 jjChars[state][vectorIndex]=18446708889337453567
+Cur char: ' '
+Looking to move from state: 6 <UNKNOWN>
+Looking to move from state: 5 <token of kind 8>
+Looking to move from state: 4 <UNKNOWN>
+Looking to move from state: 2 <token of kind 8>
+Found a match of kind: 8 [<token of kind 8>] using the first: 0 characters
+Looking to move from state: 9 <UNKNOWN>
+Cur char: 'o'
+Looking to move from state: 6 <UNKNOWN>
+Looking to move from state: 5 <token of kind 8>
+Looking to move from state: 4 <UNKNOWN>
+Looking to move from state: 2 <token of kind 8>
+Found a match of kind: 8 [<token of kind 8>] using the first: 1 characters
+Cur char: '-'
+Looking to move from state: 6 <UNKNOWN>
+Looking to move from state: 5 <token of kind 8>
+Looking to move from state: 4 <UNKNOWN>
+Looking to move from state: 2 <token of kind 8>
+Cur char: 'i'
+Looking to move from state: 8 <token of kind 8>
+Looking to move from state: 7 <UNKNOWN>
+Looking to move from state: 5 <token of kind 8>
+Looking to move from state: 2 <token of kind 8>
+Found a match of kind: 8 [<token of kind 8>] using the first: 3 characters
+Cur char: ' '
+Looking to move from state: 6 <UNKNOWN>
+Looking to move from state: 5 <token of kind 8>
+Looking to move from state: 4 <UNKNOWN>
+Looking to move from state: 2 <token of kind 8>
+Found a match of kind: 8 [<token of kind 8>] using the first: 4 characters
+Cur char: '-'
+Looking to move from state: 6 <UNKNOWN>
+Looking to move from state: 5 <token of kind 8>
+Looking to move from state: 4 <UNKNOWN>
+Looking to move from state: 2 <token of kind 8>
+Cur char: '-'
+Looking to move from state: 8 <token of kind 8>
+Found a match of kind: 8 [<token of kind 8>] using the first: 6 characters
+Looking to move from state: 7 <UNKNOWN>
+Looking to move from state: 5 <token of kind 8>
+Looking to move from state: 2 <token of kind 8>
 Done with NFA at pos: 6
-Found a SKIP match.
-<DEFAULT>
-  Current character: ' ' at 1:13
-Looking for string literal match of kind:1 token image: ' '
-  Current character: ' '
-  Currently matched the first: 1 chars as kind: 1,with image:  
+Found a SKIP match
+<DEFAULT> Current input char: ' ' at 1:13
+Looking for string literal match of kind: 1 " "
+Cur char: ' '
+Currently matched the first: 1 chars as kind: 1 " "
 No NFA state at pos: 2
-Found a SKIP match.
-<DEFAULT>
-  Current character: 'b' at 1:14
+Found a SKIP match
+<DEFAULT> Current input char: 'b' at 1:14
 No string literal start with char: 'b'
 Starting NFA with start state: 0
-  Current character: 'b'
-Looking to move from state: 0 for: <Id>
-state=0 vectorindex=1 bitpattern=17179869184 jjChars[state][vectorIndex]=576460743847706622
-Found a match of kind:9; kind: <Id> using the first: 0 characters.
-  Current character: 'b'
-Looking to move from state: 1 for: <Id>
-state=1 vectorindex=1 bitpattern=17179869184 jjChars[state][vectorIndex]=576460743847706622
-Found a match of kind:9; kind: <Id> using the first: 1 characters.
-  Current character: ''
-Looking to move from state: 1 for: <Id>
-state=1 vectorindex=0 bitpattern=8192 jjChars[state][vectorIndex]=287984085547089920
+Cur char: 'b'
+Looking to move from state: 0 <Id>
+Found a match of kind: 9 [<Id>] using the first: 0 characters
+Cur char: 'b'
+Looking to move from state: 1 <Id>
+Found a match of kind: 9 [<Id>] using the first: 1 characters
+Cur char: ''
+Looking to move from state: 1 <Id>
 Done with NFA at pos: 2
-Returning token: 'bb' 
-<DEFAULT>
-  Current character: '' at 1:16
-Looking for string literal match of kind:4 token image: '\r'
-  Current character: ''
-  Currently matched the first: 1 chars as kind: 4,with image: \r
+Returning token: 'bb'
+<DEFAULT> Current input char: '' at 1:16
+Looking for string literal match of kind: 4 "\r"
+Cur char: ''
+Currently matched the first: 1 chars as kind: 4 "\r"
 No NFA state at pos: 2
-Found a SKIP match.
-<DEFAULT>
-  Current character: '
+Found a SKIP match
+<DEFAULT> Current input char: '
 ' at 1:17
-Looking for string literal match of kind:3 token image: '\n'
-  Current character: '
+Looking for string literal match of kind: 3 "\n"
+Cur char: '
 '
-  Currently matched the first: 1 chars as kind: 3,with image: \n
-Found a SKIP match.
+Currently matched the first: 1 chars as kind: 3 "\n"
+Found a SKIP match
 <DEFAULT> Reached EOF at 1:17
 Input file parsed successfully

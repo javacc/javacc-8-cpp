@@ -1,64 +1,67 @@
-
+/*
+ * Copyright (c) 2020-2025, Sreeni Viswanadha <sreeni@viswanadha.net>.
+ * Copyright (c) 2024-2025, Marc Mazas <mazas.marc@gmail.com>.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ *     * Redistributions of source code must retain the above copyright notice,
+ *       this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above copyright
+ *       notice, this list of conditions and the following disclaimer in the
+ *       documentation and/or other materials provided with the distribution.
+ *     * Neither the names of of the copyright holders nor the names of its
+ *       contributors may be used to endorse or promote products derived from
+ *       this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
+ * THE POSSIBILITY OF SUCH DAMAGE.
+ */
 package org.javacc.cpp;
 
+import java.io.File;
+import java.io.IOException;
 import org.javacc.parser.CodeGeneratorSettings;
 import org.javacc.parser.Context;
 import org.javacc.parser.JavaCCGlobals;
 import org.javacc.parser.Options;
 
-import java.io.File;
-import java.io.IOException;
-
 class TokenCodeGenerator implements org.javacc.parser.TokenCodeGenerator {
 
   private final Context context;
 
-  TokenCodeGenerator(Context context) {
+  TokenCodeGenerator(final Context context) {
     this.context = context;
   }
 
-  /**
-   * The Token class generator.
-   */
-  /*
+  /** The Token class generator. */
   @Override
-  public boolean generateCodeForToken(CodeGeneratorSettings settings) {
-   try (CppCodeBuilder builder = CppCodeBuilder.ofHeader(context, settings)) {
- 
-        builder.setFile(new File((String) settings.get("OUTPUT_DIRECTORY"), "Token.h"));
-      builder.addTools(JavaCCGlobals.toolName);
-      builder.addOption(
-    		  Options.USEROPTION__STATIC, 
-    		  Options.USEROPTION__SUPPORT_CLASS_VISIBILITY_PUBLIC);
+  public boolean generateCodeForToken(final CodeGeneratorSettings settings) {
+    //	if (Options.getUserTokenManager()) {
+    //		return true;
+    //	}
+    try (CppCodeBuilder ccb = CppCodeBuilder.of(context, settings)) {
+      ccb.setFile(new File((String) settings.get("OUTPUT_DIRECTORY"), "Token.cc"));
+      ccb.addTools(JavaCCGlobals.toolName);
+      ccb.addOption(
+          Options.UO__STATIC, Options.UO__SUPPORT_CLASS_VISIBILITY_PUBLIC);
 
-      builder.switchToIncludeFile();
-      builder.printTemplate("/templates/cpp/Token.h.template");
-    } catch (IOException e) {
+      ccb.printTemplate("/templates/cpp/Token.cc.template");
+      ccb.switchToIncludeFile();
+      ccb.printTemplate("/templates/cpp/Token.h.template");
+    } catch (final IOException e) {
       return false;
     }
-	  return true;
+    return true;
   }
-*/
-
-@Override
-public boolean generateCodeForToken(CodeGeneratorSettings settings) {
-//	if (Options.getUserTokenManager()) {
-//		return true;
-//	}
-    try (CppCodeBuilder builder = CppCodeBuilder.of(context, settings)) {
-        builder.setFile(new File((String) settings.get("OUTPUT_DIRECTORY"), "Token.cc"));
-        builder.addTools(JavaCCGlobals.toolName);
-        builder.addOption(
-      		  Options.USEROPTION__STATIC, 
-      		  Options.USEROPTION__SUPPORT_CLASS_VISIBILITY_PUBLIC);
-
-        builder.printTemplate("/templates/cpp/Token.cc.template");
-        builder.switchToIncludeFile();
-        builder.printTemplate("/templates/cpp/Token.h.template");
-      } catch (IOException e) {
-        return false;
-      }
-      return true;
-    }
 }
-

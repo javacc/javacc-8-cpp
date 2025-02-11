@@ -413,7 +413,7 @@ class JJTreeCodeGenerator extends DefaultJJTreeVisitor {
   @Override
   public void generateHelperFiles() throws java.io.IOException {
     CodeGeneratorSettings options = CodeGeneratorSettings.of(Options.getOptions());
-    options.set(Options.NONUSER_OPTION__PARSER_NAME, JJTreeGlobals.parserName);
+    options.set(Options.NUO__PARSER_NAME, JJTreeGlobals.parserName);
 
     try (CppCodeBuilder builder = CppCodeBuilder.of(context, options)) {
       builder

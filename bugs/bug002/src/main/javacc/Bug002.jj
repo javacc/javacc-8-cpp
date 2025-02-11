@@ -5,12 +5,22 @@ options
   DEBUG_TOKEN_MANAGER = true;
   DEBUG_LOOKAHEAD = true;
   STATIC = false;
-  //NO_DFA=false;
+//  NO_DFA=true; // test
+//  PARSER_INCLUDE = "stdio.h"; // test
+//  TOKEN_MANAGER_INCLUDE = "<stdio.h>"; // test
+//  TOKEN_INCLUDE = "<stdio.h>"; // test
+  NAMESPACE = "mns";
+//  BUILD_PARSER = false; // test
+//  BUILD_TOKEN_MANAGER = false; // test
 }
 
 PARSER_BEGIN(Bug)
 
 PARSER_END(Bug)
+
+TOKEN_MGR_DECLS : {
+  int mytmdels; // test
+}
 
 SKIP : { " " | "\t" | "\n" | "\r" }
 
@@ -39,7 +49,9 @@ TOKEN :
   < IDENTIFIANT : < LOWERCASEFIRST > >
 | < VALUEREFERENCE : < LOWERCASEFIRST > >
 }
-
+// e
+/* ee */
+/** eee */
 void EnumerationItem() :
 {}
 {
@@ -52,6 +64,9 @@ void EnumerationItem() :
   < RBRACE >
 }
 
+// n
+
+/** nnn */
 void NamedNumber() :
 {}
 {
@@ -61,7 +76,7 @@ void NamedNumber() :
   )
   < LPAREN > < NUMBER > < RPAREN >
 }
-
+// i
 void identifier() :
 {}
 {
