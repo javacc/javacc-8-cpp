@@ -44,35 +44,17 @@ public:
     digpw = aDigpw;
   }
 
-// care: the line package, even if in comment, will be used!
-/*
-pac-kage dig; // different from Faq, to allow different helper files
-
-import java.io.*;
-
-public class Digest {
-  private int count = 0;
-  PrintWriter digpw;
-
-  void setDigpw(final PrintWriter aDigpw) {
-    digpw = aDigpw;
-  }
-}
-*/
-
 PARSER_END(Digest)
 
 JJString MailFile() :
-{
-  JJString mail, mails = "";
-}
+{ JJString mail, mails = ""; }
 {
   (
     { count++; }
     mail = MailMessage()
     {
       mails += mail;
-      std::cout << count << ".";
+      std::cout << count << "-";
       std::cout.flush();
     }
   )*

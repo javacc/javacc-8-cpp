@@ -12,7 +12,7 @@
  *     * Redistributions in binary form must reproduce the above copyright
  *       notice, this list of conditions and the following disclaimer in the
  *       documentation and/or other materials provided with the distribution.
- *     * Neither the names of of the copyright holders nor the names of its
+ *     * Neither the names of the copyright holders nor the names of its
  *       contributors may be used to endorse or promote products derived from
  *       this software without specific prior written permission.
  * 
@@ -77,38 +77,38 @@ static const JJChar JJQUOTE[]   = { '\'', 0 };
 static const JJChar JJDBQUOTE[] = { '\"', 0 };
 
 
-// Abstraction on stream classes to read a block of data into a buffer.
+/** Abstraction on stream classes to read a block of data into a buffer. */
 class ReaderStream {
 
-public:
-  // Read block of data into a buffer and return the actual number read.
-  virtual size_t read(JJChar* buffer, int offset, size_t len) { return 0; }
-  virtual bool   endOfInput() { return true; }
+  public:
+
   virtual ~ReaderStream() {}
   
+  /** Reads block of data into a buffer and return the actual number read. */
+  virtual size_t read(JJChar* /*buffer*/, int /*offset*/, size_t /*len*/) { return 0; }
+  
+  /** To be overriden. */
+  virtual bool   endOfInput() { return true; }
+
 };
 
-template<typename T>
-struct JJEnter {
-  JJEnter(T f) : f{f} {f();}
-  ~JJEnter(){}
-  T f;
+template<typename TF> struct JJEnter {
+  TF fs;
+  JJEnter(TF fp) : fs{fp} { fs(); }
+  ~JJEnter()              {}
 };
 
-template<typename T>
-struct JJExit {
-  JJExit(T f) : f{f} {}
-  ~JJExit(){f();}
-  T f;
+template<typename TF> struct JJExit {
+  TF fs;
+  JJExit(TF fp) : fs{fp} {}
+  ~JJExit()              { fs(); }
 };
 
 \#define OUT_OF_RANGE 0x0A
-template<int size, typename T>
-struct Array {
+template<int size, typename T> struct Array {
 
   T array[size];
   
-public:
   T &operator[](size_t index) {
     if (index >= size)
       throw OUT_OF_RANGE;

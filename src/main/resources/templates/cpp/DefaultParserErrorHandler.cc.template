@@ -12,7 +12,7 @@
  *     * Redistributions in binary form must reproduce the above copyright
  *       notice, this list of conditions and the following disclaimer in the
  *       documentation and/or other materials provided with the distribution.
- *     * Neither the names of of the copyright holders nor the names of its
+ *     * Neither the names of the copyright holders nor the names of its
  *       contributors may be used to endorse or promote products derived from
  *       this software without specific prior written permission.
  * 
@@ -29,7 +29,6 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 #fi
-// shouldn't BUILD_PARSER condition be in CppCodeGenerator.java?
 #if BUILD_PARSER
 \#if (JAVACC_CHAR_TYPE_SIZEOF != 1)
 \#include <codecvt>
@@ -63,11 +62,14 @@ void DefaultParserErrorHandler::unexpectedToken(const JJString& expectedImage,
                                                 const JJString& actualLabel,
                                                 const Token* actualToken) {
   error_count++;
-  JJLOG << JJWIDE(Expecting) << JJSPACE << addUnicodeEscapes(expectedLabel)
-        << JJWIDE(:) << JJQUOTE << addUnicodeEscapes(expectedImage) << JJQUOTE
-        << JJSPACE << JJWIDE(at) << JJSPACE << actualToken->beginLine()
-        << JJWIDE(:) << actualToken->beginColumn() << JJSPACE 
-        << JJWIDE(but got) << JJSPACE
+  JJLOG << JJWIDE(Expecting:) << JJSPACE << addUnicodeEscapes(expectedLabel)
+        << JJSPACE << JJWIDE(/) << JJSPACE
+        << JJQUOTE << addUnicodeEscapes(expectedImage) << JJQUOTE
+#if KEEP_LINE_COLUMN
+        << JJCOMMA << JJSPACE << JJWIDE(at) << JJSPACE << actualToken->beginLine()
+        << JJWIDE(:) << actualToken->beginColumn()
+#fi
+        << JJCOMMA << JJSPACE << JJWIDE(but got:) << JJSPACE
         << JJQUOTE << addUnicodeEscapes(actualImage) << JJQUOTE << std::endl;
 }
 
@@ -81,10 +83,12 @@ void DefaultParserErrorHandler::parseError(const Token* last,
   const JJString& work = to_wstring(production);
 \#endif
   JJLOG << JJWIDE(Encountered:) << JJSPACE
-        << JJQUOTE << addUnicodeEscapes(unexpected->image()) << JJQUOTE << JJSPACE 
-        << JJWIDE(at) << JJSPACE << unexpected->beginLine()
-        << JJWIDE(:) << unexpected->beginColumn() << JJSPACE 
-        << JJWIDE(while parsing:) << JJSPACE << work << std::endl;
+        << JJQUOTE << addUnicodeEscapes(unexpected->image()) << JJQUOTE
+#if KEEP_LINE_COLUMN
+        << JJCOMMA << JJSPACE << JJWIDE(at) << JJSPACE << unexpected->beginLine()
+        << JJWIDE(:) << unexpected->beginColumn()
+#fi
+        << JJSPACE  << JJWIDE(while parsing:) << JJSPACE << work << std::endl;
 }
 
 void DefaultParserErrorHandler::otherError(const JJString& message) {

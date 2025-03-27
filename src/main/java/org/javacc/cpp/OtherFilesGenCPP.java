@@ -11,7 +11,7 @@
  *     * Redistributions in binary form must reproduce the above copyright
  *       notice, this list of conditions and the following disclaimer in the
  *       documentation and/or other materials provided with the distribution.
- *     * Neither the names of of the copyright holders nor the names of its
+ *     * Neither the names of the copyright holders nor the names of its
  *       contributors may be used to endorse or promote products derived from
  *       this software without specific prior written permission.
  *
@@ -45,22 +45,31 @@ import org.javacc.parser.TokenizerData;
 
 /** Generates the Constants file. */
 class OtherFilesGenCPP {
+
   static void printTokenImages(final CppCodeBuilder ccb, final Context context) {
-    ccb.println("  /** Literal token image. */");
+    ccb.println("/** Literal token values. */");
+    ccb.println();
     int cnt = 0;
-    ccb.println("  static const JJChar tokenImage_" + cnt + "[] = ");
+    ccb.println("static const JJChar tokenImage_" + cnt + "[] = ");
+    ccb.print("  ");
     OtherFilesGenCPP.printCharArray(ccb, "<EOF>");
     ccb.println(";");
 
     for (final TokenProduction tp : context.globals().rexprlist) {
       for (final RegExprSpec res : tp.respecs) {
         final RegularExpression re = res.rexp;
-        ccb.println("  static const JJChar tokenImage_" + ++cnt + "[] = ");
-        if (re instanceof RStringLiteral) {
-          final String image = ((RStringLiteral) re).image;
-          OtherFilesGenCPP.printCharArray(ccb, image);
-        } else if (!re.label.equals("")) {
+        ccb.println("static const JJChar tokenImage_" + ++cnt + "[] = ");
+        // prefer labels to literals
+        if (!re.label.equals("")) {
+          ccb.println("  // <" + re.label + ">");
+          ccb.print("  ");
           OtherFilesGenCPP.printCharArray(ccb, "<" + re.label + ">");
+        } else if (re instanceof RStringLiteral) {
+          final String image = ((RStringLiteral) re).image;
+          // need to escape chars
+          // ccb.println("  // " + image);
+          ccb.print("  ");
+          OtherFilesGenCPP.printCharArray(ccb, image);
         } else {
           if (re.tpContext.kind == TokenProduction.TOKEN) {
             context
@@ -69,35 +78,43 @@ class OtherFilesGenCPP {
                     re,
                     "Consider giving this non-string token a label for better error reporting.");
           }
+          ccb.println("  // " + "<token of kind " + re.ordinal + ">");
+          ccb.print("  ");
           OtherFilesGenCPP.printCharArray(ccb, "<token of kind " + re.ordinal + ">");
         }
         ccb.println(";");
       }
     }
-
-    ccb.println("  static const JJChar* const tokenImages[] = {");
+    ccb.println();
+    ccb.println("static const JJChar* const tokenImages[] = {");
     for (int i = 0; i <= cnt; i++) {
-      ccb.println("tokenImage_" + i + ", ");
+      ccb.println("  tokenImage_" + i + ", ");
     }
-    ccb.println("  };");
+    ccb.println("};");
     ccb.println();
   }
 
   static void printTokenLabels(final CppCodeBuilder ccb, final Context ctx) {
-    ccb.println("  /** Literal token label. */");
+    ccb.println("/** Literal token labels. */");
+    ccb.println();
     int cnt = 0;
-    ccb.println("  static const JJChar tokenLabel_" + cnt + "[] = ");
+    ccb.println("static const JJChar tokenLabel_" + cnt + "[] = ");
+    ccb.print("  ");
     OtherFilesGenCPP.printCharArray(ccb, "<EOF>");
     ccb.println(";");
 
     for (final TokenProduction tp : ctx.globals().rexprlist) {
       for (final RegExprSpec res : tp.respecs) {
         final RegularExpression re = res.rexp;
-        ccb.println("  static const JJChar tokenLabel_" + ++cnt + "[] = ");
+        ccb.println("static const JJChar tokenLabel_" + ++cnt + "[] = ");
         if (re instanceof RStringLiteral) {
           final String label = ((RStringLiteral) re).label;
+          ccb.println("  // <" + label + ">");
+          ccb.print("  ");
           OtherFilesGenCPP.printCharArray(ccb, "<" + label + ">");
         } else if (!re.label.equals("")) {
+          ccb.println("  // <" + re.label + ">");
+          ccb.print("  ");
           OtherFilesGenCPP.printCharArray(ccb, "<" + re.label + ">");
         } else {
           if (re.tpContext.kind == TokenProduction.TOKEN) {
@@ -106,17 +123,19 @@ class OtherFilesGenCPP {
                     re,
                     "Consider giving this non-string token a label for better error reporting.");
           }
+          ccb.println("  // " + "<token of kind " + re.ordinal + ">");
+          ccb.print("  ");
           OtherFilesGenCPP.printCharArray(ccb, "<token of kind " + re.ordinal + ">");
         }
         ccb.println(";");
       }
     }
-
-    ccb.println("  static const JJChar* const tokenLabels[] = {");
+    ccb.println();
+    ccb.println("static const JJChar* const tokenLabels[] = {");
     for (int i = 0; i <= cnt; i++) {
-      ccb.println("tokenLabel_" + i + ", ");
+      ccb.println("  tokenLabel_" + i + ", ");
     }
-    ccb.println("  };");
+    ccb.println("};");
     ccb.println();
   }
 
@@ -130,7 +149,8 @@ class OtherFilesGenCPP {
     toolnames.add(JavaCCGlobals.toolName);
 
     try (CppCodeBuilder ccb = CppCodeBuilder.ofHeader(context, CodeGeneratorSettings.create())) {
-      ccb.setFile(new File(Options.getOutputDirectory(), context.globals().cu_name + "Constants.h"));
+      ccb.setFile(
+          new File(Options.getOutputDirectory(), context.globals().cu_name + "Constants.h"));
       ccb.addTools(toolnames.toArray(new String[toolnames.size()]));
 
       ccb.println();
@@ -150,17 +170,17 @@ class OtherFilesGenCPP {
       }
 
       final String constPrefix = "const";
-      ccb.println("  /** End of File. */");
+      ccb.println("/** Token kind 0. */");
       ccb.println(constPrefix + "  int _EOF = 0;");
       for (final RegularExpression re : context.globals().ordered_named_tokens) {
-        ccb.println("  /** RegularExpression Id. */");
+        ccb.println("/** Labeled token " + re.ordinal + " kind. */");
         ccb.println(constPrefix + "  int " + re.label + " = " + re.ordinal + ";");
       }
       ccb.println();
 
       if (!Options.getUserTokenManager() && Options.getBuildTokenManager()) {
         for (int i = 0; i < tokenizerData.lexStateNames.length; i++) {
-          ccb.println("  /** Lexical state. */");
+          ccb.println("/** Lexical state " + i + ". */");
           ccb.println(constPrefix + "  int " + tokenizerData.lexStateNames[i] + " = " + i + ";");
         }
         ccb.println();
@@ -173,7 +193,8 @@ class OtherFilesGenCPP {
       }
       ccb.println("#endif");
     } catch (final java.io.IOException e) {
-      context.errors()
+      context
+          .errors()
           .semantic_error(
               "Could not open file " + context.globals().cu_name + "Constants.h for writing.");
       throw new Error();

@@ -1,3 +1,34 @@
+#if PRINT_LICENSE
+/*
+ * Copyright (c) 2020-2025, Sreeni Viswanadha <sreeni@viswanadha.net>.
+ * Copyright (c) 2024-2025, Marc Mazas <mazas.marc@gmail.com>.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ *     * Redistributions of source code must retain the above copyright notice,
+ *       this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above copyright
+ *       notice, this list of conditions and the following disclaimer in the
+ *       documentation and/or other materials provided with the distribution.
+ *     * Neither the names of the copyright holders nor the names of its
+ *       contributors may be used to endorse or promote products derived from
+ *       this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
+ * THE POSSIBILITY OF SUCH DAMAGE.
+ */
+#fi
 \#include <stdio.h>
 
 #if VISITOR
@@ -32,9 +63,7 @@ Node::Node(${PARSER_NAME} *parser, int id) :
 #fi
 }
 Node::~Node() {
-    for (int i = 0; i < children.size(); ++i) {
-      delete children[i];
-    }
+  for (int i = 0; i < children.size(); ++i) { delete children[i]; }
 }
 void Node::jjtOpen() const {
 }
@@ -42,12 +71,9 @@ void Node::jjtOpen() const {
 void Node::jjtClose() const {
 }
 
-void Node::jjtSetParent(Node *n) {
-    parent = n; 
-}
-Node* Node::jjtGetParent() const {
-    return parent; 
-}
+void Node::jjtSetParent(Node *n) { parent = n;  }
+
+Node* Node::jjtGetParent() const { return parent; }
 
 void Node::jjtAddChild(Node *n, int i) {
     if (i >= children.size()) {
@@ -56,17 +82,11 @@ void Node::jjtAddChild(Node *n, int i) {
     children[i] = n;
 }
 
-Node* Node::jjtGetChild(int i) const {
-    return i < children.size() ? children[i] : nullptr;
-}
+Node* Node::jjtGetChild(int i) const { return i < children.size() ? children[i] : nullptr; }
 
-int Node::jjtGetNumChildren() const {
-    return children.size();
-}
+int Node::jjtGetNumChildren() const { return children.size(); }
 
-void Node::jjtSetValue(void * value) {
-    this->value = value; 
-}
+void Node::jjtSetValue(void * value) { this->value = value; }
 
 void* Node::jjtGetValue() const {
     return value;
@@ -80,8 +100,7 @@ void   Node::jjtSetLastToken(Token* token)  { this->lastToken = token; }
 
 #fi
 #if VISITOR
-${VISITOR_RETURN_TYPE} Node::jjtAccept(${PARSER_NAME}Visitor *visitor, ${VISITOR_DATA_TYPE:-void *} data) const
-{
+${VISITOR_RETURN_TYPE} Node::jjtAccept(${PARSER_NAME}Visitor *visitor, ${VISITOR_DATA_TYPE:-void *} data) const {
 #if VISITOR_RETURN_TYPE_VOID
     visitor->visit(this, data);
 #else
@@ -90,21 +109,15 @@ ${VISITOR_RETURN_TYPE} Node::jjtAccept(${PARSER_NAME}Visitor *visitor, ${VISITOR
 }
 
 void Node::jjtChildrenAccept(${PARSER_NAME}Visitor *visitor, ${VISITOR_DATA_TYPE:-void *} data) const {
-    for (int i = 0; i < children.size(); ++i) {
-      children[i]->jjtAccept(visitor, data);
-    }
+  for (int i = 0; i < children.size(); ++i) { children[i]->jjtAccept(visitor, data); }
 }
 
 void Node::jjtChildAccept(int childNo, ${PARSER_NAME}Visitor *visitor, ${VISITOR_DATA_TYPE:-void *} data) const {
-    if (0 <= childNo && childNo < children.size())
-      children[childNo]->jjtAccept(visitor, data);
-}    	
+  if (0 <= childNo && childNo < children.size()) { children[childNo]->jjtAccept(visitor, data); }
+}
 
 #fi
-
-std::vector<Node*>& Node::jjtChildren() {
-    return children;
-}
+std::vector<Node*>& Node::jjtChildren() { return children; }
 
 JJString Node::toString() const                       { return jjtNodeName[id]; }
 JJString Node::toString(const JJString& prefix) const { return prefix + toString(); }
@@ -115,23 +128,21 @@ static const JJString space    = spaces;
 static const JJString newline  = newlines;
 
 void Node::dumpToBuffer(const JJString& prefix, const JJString& separator, JJString* buffer) const {
-    buffer->append(toString(prefix));
-    buffer->append(separator);
-    for (int i = 0; i < children.size(); ++i) {
-      Node *n = (Node*)children[i];
-      if (n != nullptr) {
-        n->dumpToBuffer(prefix + space, separator, buffer);
-      }
+  buffer->append(toString(prefix));
+  buffer->append(separator);
+  for (int i = 0; i < children.size(); ++i) {
+    Node *n = (Node*)children[i];
+    if (n != nullptr) {
+      n->dumpToBuffer(prefix + space, separator, buffer);
     }
+  }
 }
   
 void Node::dump(const JJString& prefix) const {
-    JJString *buffer = new JJString();
-    dumpToBuffer(prefix, newline, buffer);
-    for (int i = 0; i < buffer->size(); i++) {
-      printf("%c", (*buffer)[i]);
-    }
-    delete buffer;
+  JJString *buffer = new JJString();
+  dumpToBuffer(prefix, newline, buffer);
+  for (int i = 0; i < buffer->size(); i++) { printf("%c", (*buffer)[i]); }
+  delete buffer;
 }
 
 

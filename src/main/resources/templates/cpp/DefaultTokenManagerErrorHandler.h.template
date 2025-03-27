@@ -12,7 +12,7 @@
  *     * Redistributions in binary form must reproduce the above copyright
  *       notice, this list of conditions and the following disclaimer in the
  *       documentation and/or other materials provided with the distribution.
- *     * Neither the names of of the copyright holders nor the names of its
+ *     * Neither the names of the copyright holders nor the names of its
  *       contributors may be used to endorse or promote products derived from
  *       this software without specific prior written permission.
  * 
@@ -32,7 +32,6 @@
 \#ifndef JAVACC_DEFAULT_TOKEN_MANAGER_ERROR_HANDLER_H
 \#define JAVACC_DEFAULT_TOKEN_MANAGER_ERROR_HANDLER_H
 
-// shouldn't BUILD_TOKEN_MANAGER condition be in TokenManagerCodeGenerator.java?
 #if BUILD_TOKEN_MANAGER
 \#include "JavaCC.h"
 \#include "TokenManagerErrorHandler.h"
@@ -57,17 +56,16 @@ public:
   //    errorAfter  : prefix that was seen before this error occurred
   //    curchar     : the offending character
   //
-  virtual void lexicalError(bool EOFSeen,
-                            int lexState,
-                            int errorLine,
-                            int errorColumn,
+  virtual void lexicalError(    bool EOFSeen,
+                                 int lexState,
+                                 int errorLine,
+                                 int errorColumn,
                             JJString errorAfter,
-                            JJChar curChar);
+                              JJChar curChar);
 
   virtual void lexicalError(const JJString& errorMessage);
 
 }; // end class
-
 
 #if NAMESPACE
 ${NAMESPACE_CLOSE} // end namespace

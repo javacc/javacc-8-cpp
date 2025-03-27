@@ -11,7 +11,7 @@
  *     * Redistributions in binary form must reproduce the above copyright
  *       notice, this list of conditions and the following disclaimer in the
  *       documentation and/or other materials provided with the distribution.
- *     * Neither the names of of the copyright holders nor the names of its
+ *     * Neither the names of the copyright holders nor the names of its
  *       contributors may be used to endorse or promote products derived from
  *       this software without specific prior written permission.
  *
@@ -43,7 +43,7 @@ public class CppCodeGenerator implements CodeGenerator {
 
   static final boolean IS_DEBUG = true;
 
-  /** The name of the C# code generator. */
+  /** The name of the C++ code generator. */
   @Override
   public final String getName() {
     return "C++";
@@ -67,8 +67,7 @@ public class CppCodeGenerator implements CodeGenerator {
       try (CppCodeBuilder ccb = CppCodeBuilder.of(context, settings)) {
         ccb.setFile(new File((String) settings.get("OUTPUT_DIRECTORY"), "DefaultCharStream.cc"));
         ccb.addTools(JavaCCGlobals.toolName);
-        ccb.addOption(
-            Options.UO__STATIC, Options.UO__SUPPORT_CLASS_VISIBILITY_PUBLIC);
+        ccb.addOption(Options.UO__STATIC, Options.UO__SUPPORT_CLASS_VISIBILITY_PUBLIC);
 
         ccb.printTemplate("/templates/cpp/DefaultCharStream.cc.template");
         ccb.switchToIncludeFile();
@@ -78,8 +77,7 @@ public class CppCodeGenerator implements CodeGenerator {
       try (CppCodeBuilder ccb = CppCodeBuilder.of(context, settings)) {
         ccb.setFile(new File((String) settings.get("OUTPUT_DIRECTORY"), "TokenManagerError.cc"));
         ccb.addTools(JavaCCGlobals.toolName);
-        ccb.addOption(
-            Options.UO__STATIC, Options.UO__SUPPORT_CLASS_VISIBILITY_PUBLIC);
+        ccb.addOption(Options.UO__STATIC, Options.UO__SUPPORT_CLASS_VISIBILITY_PUBLIC);
 
         ccb.printTemplate("/templates/cpp/TokenManagerError.cc.template");
         ccb.switchToIncludeFile();
@@ -89,8 +87,7 @@ public class CppCodeGenerator implements CodeGenerator {
       try (CppCodeBuilder ccb = CppCodeBuilder.of(context, settings)) {
         ccb.setFile(new File((String) settings.get("OUTPUT_DIRECTORY"), "ParseException.cc"));
         ccb.addTools(JavaCCGlobals.toolName);
-        ccb.addOption(
-            Options.UO__STATIC, Options.UO__SUPPORT_CLASS_VISIBILITY_PUBLIC);
+        ccb.addOption(Options.UO__STATIC, Options.UO__SUPPORT_CLASS_VISIBILITY_PUBLIC);
 
         ccb.printTemplate("/templates/cpp/ParseException.cc.template");
         ccb.switchToIncludeFile();
@@ -100,8 +97,7 @@ public class CppCodeGenerator implements CodeGenerator {
       try (CppCodeBuilder ccb = CppCodeBuilder.ofHeader(context, settings)) {
         ccb.setFile(new File((String) settings.get("OUTPUT_DIRECTORY"), "TokenManager.h"));
         ccb.addTools(JavaCCGlobals.toolName);
-        ccb.addOption(
-            Options.UO__STATIC, Options.UO__SUPPORT_CLASS_VISIBILITY_PUBLIC);
+        ccb.addOption(Options.UO__STATIC, Options.UO__SUPPORT_CLASS_VISIBILITY_PUBLIC);
 
         ccb.printTemplate("/templates/cpp/TokenManager.h.template");
       }
@@ -109,8 +105,7 @@ public class CppCodeGenerator implements CodeGenerator {
       try (CppCodeBuilder ccb = CppCodeBuilder.ofHeader(context, settings)) {
         ccb.setFile(new File((String) settings.get("OUTPUT_DIRECTORY"), "JavaCC.h"));
         ccb.addTools(JavaCCGlobals.toolName);
-        ccb.addOption(
-            Options.UO__STATIC, Options.UO__SUPPORT_CLASS_VISIBILITY_PUBLIC);
+        ccb.addOption(Options.UO__STATIC, Options.UO__SUPPORT_CLASS_VISIBILITY_PUBLIC);
 
         ccb.printTemplate("/templates/cpp/JavaCC.h.template");
       }
@@ -128,13 +123,11 @@ public class CppCodeGenerator implements CodeGenerator {
         ccb.setFile(
             new File((String) settings.get("OUTPUT_DIRECTORY"), "DefaultParserErrorHandler.cc"));
         ccb.addTools(JavaCCGlobals.toolName);
-        ccb.addOption(
-            Options.UO__STATIC, Options.UO__SUPPORT_CLASS_VISIBILITY_PUBLIC);
+        ccb.addOption(Options.UO__STATIC, Options.UO__SUPPORT_CLASS_VISIBILITY_PUBLIC);
         ccb.addOption(
             Options.UO__STATIC,
             Options.UO__SUPPORT_CLASS_VISIBILITY_PUBLIC,
-            Options.UO__BUILD_PARSER,
-            Options.UO__BUILD_TOKEN_MANAGER);
+            Options.UO__BUILD_PARSER);
 
         ccb.printTemplate("/templates/cpp/DefaultParserErrorHandler.cc.template");
         ccb.switchToIncludeFile();
@@ -147,8 +140,7 @@ public class CppCodeGenerator implements CodeGenerator {
         ccb.addOption(
             Options.UO__STATIC,
             Options.UO__SUPPORT_CLASS_VISIBILITY_PUBLIC,
-            Options.UO__BUILD_PARSER,
-            Options.UO__BUILD_TOKEN_MANAGER);
+            Options.UO__BUILD_PARSER);
 
         ccb.printTemplate("/templates/cpp/ParserErrorHandler.h.template");
       }
@@ -158,12 +150,10 @@ public class CppCodeGenerator implements CodeGenerator {
             new File(
                 (String) settings.get("OUTPUT_DIRECTORY"), "DefaultTokenManagerErrorHandler.cc"));
         ccb.addTools(JavaCCGlobals.toolName);
-        ccb.addOption(
-            Options.UO__STATIC, Options.UO__SUPPORT_CLASS_VISIBILITY_PUBLIC);
+        ccb.addOption(Options.UO__STATIC, Options.UO__SUPPORT_CLASS_VISIBILITY_PUBLIC);
         ccb.addOption(
             Options.UO__STATIC,
             Options.UO__SUPPORT_CLASS_VISIBILITY_PUBLIC,
-            Options.UO__BUILD_PARSER,
             Options.UO__BUILD_TOKEN_MANAGER);
 
         ccb.printTemplate("/templates/cpp/DefaultTokenManagerErrorHandler.cc.template");
@@ -178,7 +168,6 @@ public class CppCodeGenerator implements CodeGenerator {
         ccb.addOption(
             Options.UO__STATIC,
             Options.UO__SUPPORT_CLASS_VISIBILITY_PUBLIC,
-            Options.UO__BUILD_PARSER,
             Options.UO__BUILD_TOKEN_MANAGER);
 
         ccb.printTemplate("/templates/cpp/TokenManagerErrorHandler.h.template");

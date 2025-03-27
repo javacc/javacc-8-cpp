@@ -41,20 +41,6 @@ public:
   JJString outdir;
   ofstream *indexpw;
 
-// care: the line package, even if in comment, will be used!
-/*
-pac-kage faq; // different from Digest, to allow different helper files
-
-import java.io.*;
-
-public class Faq {
-  static int count = FaqMain.count;
-  static int beginAt = FaqMain.beginAt;
-  static String outdir = FaqMain.outdir;
-  static PrintWriter indexpw = FaqMain.indexpw;
-}
-*/
-
 PARSER_END(Faq)
 
 void MailFile() :
@@ -64,7 +50,7 @@ void MailFile() :
     { count++; }
     MailMessage()
     {
-      cout << (count + ".");
+      cout << (count + "-");
       cout.flush();
     }
   )*

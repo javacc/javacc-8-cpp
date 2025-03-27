@@ -11,7 +11,7 @@
  *     * Redistributions in binary form must reproduce the above copyright
  *       notice, this list of conditions and the following disclaimer in the
  *       documentation and/or other materials provided with the distribution.
- *     * Neither the names of of the copyright holders nor the names of its
+ *     * Neither the names of the copyright holders nor the names of its
  *       contributors may be used to endorse or promote products derived from
  *       this software without specific prior written permission.
  *
@@ -69,14 +69,6 @@ final class NodeFiles {
 
   private static String jjtreeIncludeFile(final File outputDirectory) {
     return new File(outputDirectory, JJTreeGlobals.parserName + "Tree.h").getAbsolutePath();
-  }
-
-  private static String jjtreeASTNodeImplFile(final File outputDirectory, final String s) {
-    return new File(outputDirectory, s + ".cc").getAbsolutePath();
-  }
-
-  private static String jjtreeImplFile(final File outputDirectory, final String s) {
-    return new File(outputDirectory, s + ".cc").getAbsolutePath();
   }
 
   private static String visitorIncludeFile(final File outputDirectory) {
@@ -203,10 +195,19 @@ final class NodeFiles {
   }
 
   private static void generateMultiTree(final JJTreeContext context) {
+    //    System.out.println(" * nodeDirectory : " + context.treeOptions().getASTNodeDirectory());
+    //    //    System.out.println(" * nodePackage : " + context.treeOptions().getNodePackage());
+    //    System.out.println(
+    //        " * jjtreeOutputDirectory : " + context.treeOptions().getJJTreeOutputDirectory());
+    //    System.out.println(" * nodesToBuild : " + NodeFiles.nodesToBuild);
     for (final String node : NodeFiles.nodesToBuild) {
-      if (new File(
-              NodeFiles.jjtreeASTNodeImplFile(context.treeOptions().getASTNodeDirectory(), node))
-          .exists()) {
+      final File file =
+          new File(
+              //              new File(
+              context.treeOptions().getASTNodeDirectory(),
+              //                  context.treeOptions().getNodePackage()),
+              node + ".cc");
+      if (file.exists()) {
         continue;
       }
 
@@ -222,7 +223,10 @@ final class NodeFiles {
       try (CppCodeBuilder ccb = CppCodeBuilder.of(context, optionMap)) {
         ccb.setFile(
             new File(
-                NodeFiles.jjtreeImplFile(context.treeOptions().getJJTreeOutputDirectory(), node)));
+                //                new File(
+                context.treeOptions().getJJTreeOutputDirectory(),
+                //                    context.treeOptions().getNodePackage()),
+                node + ".cc"));
         ccb.setVersion(NodeFiles.nodeVersion).addTools(JJTreeGlobals.toolName);
         ccb.addOption(
             "MULTI",

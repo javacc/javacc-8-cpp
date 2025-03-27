@@ -11,7 +11,7 @@
  *     * Redistributions in binary form must reproduce the above copyright
  *       notice, this list of conditions and the following disclaimer in the
  *       documentation and/or other materials provided with the distribution.
- *     * Neither the names of of the copyright holders nor the names of its
+ *     * Neither the names of the copyright holders nor the names of its
  *       contributors may be used to endorse or promote products derived from
  *       this software without specific prior written permission.
  *
@@ -207,11 +207,11 @@ class CppCodeBuilder extends CodeBuilder<CppCodeBuilder> {
 
   // Used by the CPP code generatror
   final CppCodeBuilder printCharArray(final String s) {
-    print("{");
+    print("{ ");
     for (final char c : s.toCharArray()) {
       print("0x" + Integer.toHexString(c) + ", ");
     }
-    print("0}");
+    print("0 }");
     return this;
   }
 

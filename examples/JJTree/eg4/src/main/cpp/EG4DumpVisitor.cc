@@ -1,10 +1,32 @@
 /*
- * EG4DumpVisitor.cpp
+ * Copyright (c) 2014, Francis André.
+ * Copyright (c) 2024-2025, Marc Mazas <mazas.marc@gmail.com>.
+ * All rights reserved.
  *
- *  Created on: 28 mars 2014
- *      Author: FrancisANDRE
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ *     * Redistributions of source code must retain the above copyright notice,
+ *       this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above copyright
+ *       notice, this list of conditions and the following disclaimer in the
+ *       documentation and/or other materials provided with the distribution.
+ *     * Neither the names of the copyright holders nor the names of its
+ *       contributors may be used to endorse or promote products derived from
+ *       this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
+ * THE POSSIBILITY OF SUCH DAMAGE.
  */
-
 #include <iostream>
 #include "JavaCC.h"
 #include "EG4DumpVisitor.h"
@@ -15,74 +37,74 @@ using namespace std;
 
 namespace EG4 {
 
-EG4DumpVisitor::EG4DumpVisitor() : indent (0) {
-}
+  EG4DumpVisitor::EG4DumpVisitor() :
+      indent(0) {
+  }
 
-EG4DumpVisitor::~EG4DumpVisitor() {
-}
-JAVACC_SIMPLE_STRING EG4DumpVisitor::indentString() const {
+  EG4DumpVisitor::~EG4DumpVisitor() {
+  }
+
+  JAVACC_SIMPLE_STRING EG4DumpVisitor::indentString() const {
     JAVACC_STRING_TYPE buffer;
-     for (int i = 0; i < indent; i++) {
+    for (int i = 0; i < indent; i++) {
       buffer.append(" ");
     }
-	return buffer;
-}
+    return buffer;
+  }
 
-void* EG4DumpVisitor::visit(const Node* node, void* data) {
-//  System.out.println(indentString() + node +
-//                 ": acceptor not unimplemented in subclass?");
-	++indent;
-	node->jjtChildrenAccept(this, data);
-	--indent;
-  return data;
-}
+  void* EG4DumpVisitor::visit(const Node *node, void *data) {
+    ++indent;
+    node->jjtChildrenAccept(this, data);
+    --indent;
+    return data;
+  }
 
-void* EG4DumpVisitor::visit(const ASTStart* node, void* data) {
-	cout << indentString() + node->toString() << endl;
-	++indent;
-	node->jjtChildrenAccept(this, data);
-	--indent;
-  return data;
-}
+  void* EG4DumpVisitor::visit(const ASTStart *node, void *data) {
+    cout << indentString() + node->toString() << endl;
+    ++indent;
+    node->jjtChildrenAccept(this, data);
+    --indent;
+    return data;
+  }
 
-void* EG4DumpVisitor::visit(const ASTAdd* node, void* data) {
-	cout << indentString() + node->toString() << endl;
-	++indent;
-	node->jjtChildrenAccept(this, data);
-	--indent;
-  return data;
-}
+  void* EG4DumpVisitor::visit(const ASTAdd *node, void *data) {
+    cout << indentString() + node->toString() << endl;
+    ++indent;
+    node->jjtChildrenAccept(this, data);
+    --indent;
+    return data;
+  }
 
-void* EG4DumpVisitor::visit(const ASTMult* node, void* data) {
-	cout << indentString() + node->toString() << endl;
-	++indent;
-	node->jjtChildrenAccept(this, data);
-	--indent;
-  return data;
-}
+  void* EG4DumpVisitor::visit(const ASTMult *node, void *data) {
+    cout << indentString() + node->toString() << endl;
+    ++indent;
+    node->jjtChildrenAccept(this, data);
+    --indent;
+    return data;
+  }
 
-void* EG4DumpVisitor::visit(const ASTMyID* node, void* data) {
-	cout << indentString() + node->toString() << endl;
-	++indent;
-	node->jjtChildrenAccept(this, data);
-	--indent;
-  return data;
-}
+  void* EG4DumpVisitor::visit(const ASTMyID *node, void *data) {
+    cout << indentString() + node->toString() << endl;
+    ++indent;
+    node->jjtChildrenAccept(this, data);
+    --indent;
+    return data;
+  }
 
-void* EG4DumpVisitor::visit(const ASTMyOtherID* node, void* data) {
-	cout << indentString() + node->toString() << endl;
-	++indent;
-	node->jjtChildrenAccept(this, data);
-	--indent;
-  return data;
-}
+  void* EG4DumpVisitor::visit(const ASTMyOtherID *node, void *data) {
+    cout << indentString() + node->toString() << endl;
+    ++indent;
+    node->jjtChildrenAccept(this, data);
+    --indent;
+    return data;
+  }
 
-void* EG4DumpVisitor::visit(const ASTInteger* node, void* data) {
-	cout << indentString() + node->toString() << endl;
-	++indent;
-	node->jjtChildrenAccept(this, data);
-	--indent;
-  return data;
-}
+  void* EG4DumpVisitor::visit(const ASTInteger *node, void *data) {
+    cout << indentString() + node->toString() << endl;
+    ++indent;
+    node->jjtChildrenAccept(this, data);
+    --indent;
+    return data;
+  }
 
-} /* namespace EG4 */
+}

@@ -11,7 +11,7 @@
  *     * Redistributions in binary form must reproduce the above copyright
  *       notice, this list of conditions and the following disclaimer in the
  *       documentation and/or other materials provided with the distribution.
- *     * Neither the names of of the copyright holders nor the names of its
+ *     * Neither the names of the copyright holders nor the names of its
  *       contributors may be used to endorse or promote products derived from
  *       this software without specific prior written permission.
  *
@@ -61,8 +61,7 @@ class TokenManagerCodeGenerator implements org.javacc.parser.TokenManagerCodeGen
 
     settings.putAll(Options.getOptions());
 
-    settings.put(
-        Options.NUO__PARSER_NAME_UPPER_CASE, tokenizerData.parserName.toUpperCase());
+    settings.put(Options.NUO__PARSER_NAME_UPPER_CASE, tokenizerData.parserName.toUpperCase());
 
     settings.put("maxOrdinal", tokenizerData.allMatches.size());
     settings.put("firstLexState", tokenizerData.lexStateNames[0]);
@@ -74,7 +73,8 @@ class TokenManagerCodeGenerator implements org.javacc.parser.TokenManagerCodeGen
     settings.put("parserName", tokenizerData.parserName);
     settings.put("maxLongs", (tokenizerData.allMatches.size() / 64) + 1);
     settings.put("parserName", tokenizerData.parserName);
-    settings.put("charStreamName", Options.getCharStreamName());
+    // TODO see why not used in cpp
+    //    settings.put("charStreamName", Options.getCharStreamName());
     settings.put("defaultLexState", tokenizerData.defaultLexState);
     settings.put("decls", tokenizerData.decls);
     settings.put("generatedStates", tokenizerData.nfa.size());
@@ -131,14 +131,21 @@ class TokenManagerCodeGenerator implements org.javacc.parser.TokenManagerCodeGen
         }
       }
 
+      ccb.println();
+      ccb.println("/* Match info. */");
+      ccb.println();
+      dumpMatchInfo(ccb, tokenizerData);
+
       if (!Options.getNoDfa()) {
         ccb.println();
-        ccb.println("/* no user defined NO_DFA option */");
+        ccb.println("/* DFA tables. */");
+        ccb.println();
         dumpDfaTables(ccb, tokenizerData);
       }
 
+      ccb.println("/* NFA tables. */");
+      ccb.println();
       dumpNfaTables(ccb, tokenizerData);
-      dumpMatchInfo(ccb, tokenizerData);
 
     } catch (final IOException ioe) {
       ioe.printStackTrace();
@@ -218,7 +225,7 @@ class TokenManagerCodeGenerator implements org.javacc.parser.TokenManagerCodeGen
     ccb.println(
         "int "
             + tokenizerData.parserName
-            + "TokenManager::getStartAndSize(int index, int isCount)\n{");
+            + "TokenManager::getStartAndSize(int index, int isCount) {");
     ccb.println("  switch(index) {");
     for (final int key : tokenizerData.literalSequence.keySet()) {
       final int[] arr = startAndSize.get(key);
@@ -234,8 +241,7 @@ class TokenManagerCodeGenerator implements org.javacc.parser.TokenManagerCodeGen
   }
 
   private static void dumpNfaTables(final CppCodeBuilder ccb, final TokenizerData tokenizerData) {
-    // WE do the following for java so that the generated code is reasonable
-    // size and can be compiled. May not be needed for other languages.
+
     final Map<Integer, TokenizerData.NfaState> nfa = tokenizerData.nfa;
 
     int length = 0;
@@ -262,6 +268,37 @@ class TokenManagerCodeGenerator implements org.javacc.parser.TokenManagerCodeGen
       }
     }
 
+    /* canMatchAnyChar. */
+    ccb.println("static const int canMatchAnyChar[] = {");
+    int v = 0;
+    for (int i = 0; i < tokenizerData.wildcardKind.size(); i++) {
+      if (v++ > 0) {
+        ccb.print(", ");
+      } else {
+        ccb.print("  ");
+      }
+      ccb.print(tokenizerData.wildcardKind.get(i));
+    }
+    ccb.println();
+    ccb.println("};");
+    ccb.println();
+
+    /* jjInitStates. */
+    ccb.println("static const int jjInitStates[]  = {");
+    v = 0;
+    for (final int i : tokenizerData.initialStates.keySet()) {
+      if (v++ > 0) {
+        ccb.print(", ");
+      } else {
+        ccb.print("  ");
+      }
+      ccb.print(tokenizerData.initialStates.get(i));
+    }
+    ccb.println();
+    ccb.println("};");
+    ccb.println();
+
+    /* jjCharData. */
     if (Options.getCppUseArray()) {
       ccb.print("static const Array<");
       ccb.print(length + 1);
@@ -269,17 +306,16 @@ class TokenManagerCodeGenerator implements org.javacc.parser.TokenManagerCodeGen
     } else {
       ccb.println("static const long long jjCharData[][" + length + 1 + "] = {");
     }
-
     for (int i = 0; i < nfa.size(); i++) {
       final TokenizerData.NfaState tmp = nfa.get(i);
       if (i > 0) {
         ccb.println(",");
       }
       if (tmp == null) {
-        ccb.print("  {}");
+        ccb.print("  {  }");
         continue;
       }
-      ccb.print("  {");
+      ccb.print("  { ");
       final BitSet bits = new BitSet();
       for (final char c : tmp.characters) {
         bits.set(c);
@@ -299,12 +335,13 @@ class TokenManagerCodeGenerator implements org.javacc.parser.TokenManagerCodeGen
         }
         k += rep - 1;
       }
-      ccb.print("}");
+      ccb.print(" }");
     }
     ccb.println();
     ccb.println("};");
     ccb.println();
 
+    /* compositeStates. */
     length = 0;
     for (int i = 0; i < nfa.size(); i++) {
       final TokenizerData.NfaState tmp = nfa.get(i);
@@ -326,10 +363,10 @@ class TokenManagerCodeGenerator implements org.javacc.parser.TokenManagerCodeGen
         ccb.println(", ");
       }
       if (tmp == null) {
-        ccb.print("  {}");
+        ccb.print("  {  }");
         continue;
       }
-      ccb.print("  {");
+      ccb.print("  { ");
       int k = 0;
       for (final int st : tmp.compositeStates) {
         if (k++ > 0) {
@@ -337,12 +374,13 @@ class TokenManagerCodeGenerator implements org.javacc.parser.TokenManagerCodeGen
         }
         ccb.print(st);
       }
-      ccb.print("}");
+      ccb.print(" }");
     }
     ccb.println();
     ccb.println("};");
     ccb.println();
 
+    /* jjmatchKinds. */
     ccb.println("static const int jjmatchKinds[] = {");
     for (int i = 0; i < nfa.size(); i++) {
       final TokenizerData.NfaState tmp = nfa.get(i);
@@ -360,6 +398,7 @@ class TokenManagerCodeGenerator implements org.javacc.parser.TokenManagerCodeGen
     ccb.println("};");
     ccb.println();
 
+    /* jjnextStateSet. */
     length = 0;
     for (int i = 0; i < nfa.size(); i++) {
       final TokenizerData.NfaState tmp = nfa.get(i);
@@ -381,44 +420,18 @@ class TokenManagerCodeGenerator implements org.javacc.parser.TokenManagerCodeGen
         ccb.println(", ");
       }
       if (tmp == null) {
-        ccb.print("  {0}");
+        ccb.print("  { 0 }");
         continue;
       }
-      ccb.print("  {");
+      ccb.print("  { ");
       ccb.print(tmp.nextStates.size());
       for (final int s : tmp.nextStates) {
         ccb.print(", ");
         ccb.print(s);
       }
-      ccb.print("}");
+      ccb.print(" }");
     }
     ccb.println();
-    ccb.println("};");
-    ccb.println();
-
-    ccb.println("static const int jjInitStates[]  = {");
-    int k = 0;
-    for (final int i : tokenizerData.initialStates.keySet()) {
-      if (k++ > 0) {
-        ccb.print(", ");
-      } else {
-        ccb.print("  ");
-      }
-      ccb.print(tokenizerData.initialStates.get(i));
-    }
-    ccb.println("};");
-    ccb.println();
-
-    ccb.println("static const int canMatchAnyChar[] = {");
-    k = 0;
-    for (int i = 0; i < tokenizerData.wildcardKind.size(); i++) {
-      if (k++ > 0) {
-        ccb.print(", ");
-      } else {
-        ccb.print("  ");
-      }
-      ccb.print(tokenizerData.wildcardKind.get(i));
-    }
     ccb.println("};");
     ccb.println();
   }
@@ -457,7 +470,8 @@ class TokenManagerCodeGenerator implements org.javacc.parser.TokenManagerCodeGen
     toToken.set(allMatches.size() + 1, true);
     toMore.set(allMatches.size() + 1, true);
     toSpecial.set(allMatches.size() + 1, true);
-    // Kind map.
+
+    /* jjstrLiteralImages. */
     ccb.println("static const JJString jjstrLiteralImages[] = {");
     int k = 0;
     for (final int i : allMatches.keySet()) {
@@ -488,16 +502,17 @@ class TokenManagerCodeGenerator implements org.javacc.parser.TokenManagerCodeGen
     ccb.println("};");
     ccb.println();
 
-    // Now generate the bit masks.
+    /* Bit masks. */
+    generateBitVector(ccb, "jjtoToken", toToken);
+    ccb.println();
     generateBitVector(ccb, "jjtoSkip", toSkip);
     ccb.println();
     generateBitVector(ccb, "jjtoSpecial", toSpecial);
     ccb.println();
     generateBitVector(ccb, "jjtoMore", toMore);
     ccb.println();
-    generateBitVector(ccb, "jjtoToken", toToken);
-    ccb.println();
 
+    /* jjnewLexState. */
     ccb.println("static const int jjnewLexState[] = {");
     for (int i = 0; i < newStates.length; i++) {
       if (i > 0) {
@@ -512,36 +527,44 @@ class TokenManagerCodeGenerator implements org.javacc.parser.TokenManagerCodeGen
     ccb.println("};");
     ccb.println();
 
-    // Action functions.
-
-    // Token actions.
+    /* tokenLexicalActions. */
     ccb.switchToMainFile();
     ccb.println(
         "void "
             + tokenizerData.parserName
             + "TokenManager::tokenLexicalActions(Token* matchedToken) {");
+    ccb.println("  // TOKEN lexical actions");
     dumpLexicalActions(ccb, allMatches, TokenizerData.MatchType.TOKEN, "matchedToken->kind()");
     ccb.println("}");
     ccb.println();
 
+    /* skipLexicalActions. */
     ccb.println(
         "void "
             + tokenizerData.parserName
             + "TokenManager::skipLexicalActions(const Token* matchedToken) {");
+    ccb.println("  // SKIP lexical actions");
     dumpLexicalActions(ccb, allMatches, TokenizerData.MatchType.SKIP, "jjmatchedKind");
+    ccb.println("  // SPECIAL_TOKEN lexical actions");
     dumpLexicalActions(ccb, allMatches, TokenizerData.MatchType.SPECIAL_TOKEN, "jjmatchedKind");
     ccb.println("}");
     ccb.println();
 
-    // More actions.
+    /* moreLexicalActions. */
     ccb.println("void " + tokenizerData.parserName + "TokenManager::moreLexicalActions() {");
-    ccb.println("jjimageLen += (lengthOfMatch = jjmatchedPos + 1);");
+    ccb.println("  jjimageLen += (lengthOfMatch = jjmatchedPos + 1);");
+    ccb.println("  // MORE lexical actions");
     dumpLexicalActions(ccb, allMatches, TokenizerData.MatchType.MORE, "jjmatchedKind");
     ccb.println("}");
     ccb.println();
 
+    /* lexStateNames_arr_n. */
     ccb.switchToStaticsFile();
     ccb.printLiteralArray("lexStateNames", tokenizerData.lexStateNames);
+
+    /* lexStateNamesLen. */
+    ccb.println("static const int lexStateNamesLen = " + tokenizerData.lexStateNames.length + ";");
+    ccb.println();
   }
 
   private static void dumpLexicalActions(

@@ -11,7 +11,7 @@
  *     * Redistributions in binary form must reproduce the above copyright
  *       notice, this list of conditions and the following disclaimer in the
  *       documentation and/or other materials provided with the distribution.
- *     * Neither the names of of the copyright holders nor the names of its
+ *     * Neither the names of the copyright holders nor the names of its
  *       contributors may be used to endorse or promote products derived from
  *       this software without specific prior written permission.
  *
@@ -166,7 +166,7 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
     ccb.println("    next  = nullptr;");
     ccb.println("  }");
     ccb.println("  ~JJCalls() {");
-    ccb.println("    if (next) delete next;");
+    ccb.println("    delete next;");
     ccb.println("  }");
     ccb.println("};");
     ccb.println();
@@ -243,8 +243,13 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
     ccb.println("  bool                   jj_lookingAhead;  // Whether we are looking ahead.");
     ccb.println("  bool                   jj_semLA;");
 
-    ccb.println("  int                    jj_gen;");
-    ccb.println("  int                    jj_la1[" + (context.globals().maskindex + 1) + "];");
+    if (Options.getErrorReporting()) {
+      ccb.println("  int                    jj_gen;");
+      ccb.println("  int                    jj_la1[" + (context.globals().maskindex + 1) + "];");
+      ccb.println("  int                    jj_exp_Line = -1;");
+      ccb.println("  int                    jj_exp_Column = -1;");
+    }
+
     ccb.println("  ParserErrorHandler*    errorHandler = nullptr;");
     ccb.println();
     ccb.println("protected: ");
@@ -342,9 +347,15 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
     ccb.println("  jj_done = false;");
     ccb.println("  jj_scanpos = jj_lastpos = nullptr;");
     ccb.println("  jj_gc = 0;");
-    ccb.println("  jj_kind = -1;");
-    ccb.println("  indent = 0;");
-    ccb.println("  trace = " + Options.getDebugParser() + ";");
+    if (Options.getDebugParser() || Options.getDebugLookahead()) {
+      ccb.println("  trace_indent = 0;");
+    }
+    if (Options.getDebugParser()) {
+      ccb.println("  trace = true;");
+    }
+    if (Options.getDebugLookahead()) {
+      ccb.println("  trace_la = true;");
+    }
     if (!Options.getStackLimit().equals("")) {
       ccb.println("  jj_stack_limit = " + Options.getStackLimit() + ";");
       ccb.println("  jj_stack_error = jj_stack_check(true);");
@@ -420,6 +431,7 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
       ccb.println("}");
     }
 
+    /* jj_consume_token(int kind) */
     ccb.generateMethodDefHeader("Token*", context.globals().cu_name, "jj_consume_token(int kind)");
     ccb.println(" {");
     if (!Options.getStackLimit().equals("")) {
@@ -458,7 +470,7 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
       }
     }
     if (Options.getDebugParser()) {
-      ccb.println("    trace_token(token, \"\");");
+      ccb.println("    trace_token(token, \" (in jj_consume_token())\");");
     }
     ccb.println("    return token;");
     ccb.println("  }");
@@ -469,7 +481,7 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
     if (Options.getErrorReporting()) {
       ccb.println("  jj_kind = kind;");
     }
-    // codeGen.genCodeLine(" throw generateParseException();");
+    // equivalent of " throw generateParseException();");
     if (!Options.getStackLimit().equals("")) {
       ccb.println("  if (!jj_stack_error) {");
     }
@@ -489,6 +501,7 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
     ccb.println("}");
     ccb.println();
 
+    /* jj_scan_token(int kind) */
     if (context.globals().jj2index != 0) {
       ccb.switchToMainFile();
       ccb.generateMethodDefHeader("bool", context.globals().cu_name, "jj_scan_token(int kind)");
@@ -529,16 +542,21 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
       } else if (Options.getDebugLookahead()) {
         ccb.println("  trace_scan(jj_scanpos, kind);");
       }
-      ccb.println("  if (jj_scanpos->kind() != kind) return true;");
+      ccb.println("  if (jj_scanpos->kind() != kind) {");
+      ccb.println("    return true;");
+      ccb.println("  }");
       // codeGen.genCodeLine(" if (jj_la == 0 && jj_scanpos == jj_lastpos)
       // throw jj_ls;");
-      ccb.println("  if (jj_la == 0 && jj_scanpos == jj_lastpos) { return jj_done = true; }");
+      ccb.println("  if (jj_la == 0 && jj_scanpos == jj_lastpos) {");
+      ccb.println("    return jj_done = true;");
+      ccb.println("  }");
       ccb.println("  return false;");
       ccb.println("}");
       ccb.println();
     }
     ccb.println();
 
+    /* getNextToken() */
     ccb.println("/** Get the next Token. */");
     ccb.generateMethodDefHeader("Token*", context.globals().cu_name, "getNextToken()");
     ccb.println(" {");
@@ -554,12 +572,13 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
       ccb.println("  jj_gen++;");
     }
     if (Options.getDebugParser()) {
-      ccb.println("  trace_token(token, \" (in getNextToken)\");");
+      ccb.println("  trace_token(token, \" (in getNextToken())\");");
     }
     ccb.println("  return token;");
     ccb.println("}");
     ccb.println();
 
+    /* getToken(int index) */
     ccb.println("/** Get the specific Token. */");
     ccb.generateMethodDefHeader("Token*", context.globals().cu_name, "getToken(int index)");
     ccb.println(" {");
@@ -577,6 +596,7 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
     ccb.println();
 
     if (!Options.getCacheTokens()) {
+      /* jj_ntk_f() */
       ccb.generateMethodDefHeader("int", context.globals().cu_name, "jj_ntk_f()");
       ccb.println(" {");
 
@@ -590,146 +610,210 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
 
     ccb.switchToIncludeFile();
     ccb.println("private:");
-    ccb.println("  int jj_kind;");
     if (Options.getErrorReporting()) {
       ccb.println("  int** jj_expentries;");
       ccb.println("  int*  jj_expentry;");
+      ccb.println("  int jj_kind = -1;");
       ccb.println();
       if (context.globals().jj2index != 0) {
         ccb.switchToStaticsFile();
-        // For now we don't support ERROR_REPORTING in the C++ version.
-        // codeGen.genCodeLine(" static int *jj_lasttokens = new
-        // int[100];");
-        // codeGen.genCodeLine(" static int jj_endpos;");
+        // For now we don't support full ERROR_REPORTING in the C++ version.
+        // ccb.println(" static int *jj_lasttokens = new int[100];");
+        // ccb.println(" static int jj_endpos;");
         ccb.println();
 
+        /* jj_add_error_token(int kind, int pos) */
         ccb.generateMethodDefHeader(
             "void", context.globals().cu_name, "jj_add_error_token(int kind, int pos)");
         ccb.println(" {");
-        // For now we don't support ERROR_REPORTING in the C++ version.
+        // For now we don't support full ERROR_REPORTING in the C++ version.
+        /* java, to be translated
+            ccb.println("    if (pos >= 100) {");
+            ccb.println("     return;");
+            ccb.println("    }");
+            ccb.println("    if (pos == jj_endpos + 1) {");
+            ccb.println("      jj_lasttokens[jj_endpos++] = kind;");
+            ccb.println("    } else if (jj_endpos != 0) {");
+            ccb.println("      jj_expentry = new int[jj_endpos];");
+            ccb.println("      for (int i = 0; i < jj_endpos; i++) {");
+            ccb.println("        jj_expentry[i] = jj_lasttokens[i];");
+            ccb.println("      }");
+            if (!Options.getGenerateGenerics()) {
+              ccb.println(
+                  "      for (java.util.Iterator it = jj_expentries.iterator(); it.hasNext();) {");
+              ccb.println("        int[] oldentry = (int[])(it.next());");
+            } else {
+              ccb.println("      for (int[] oldentry : jj_expentries) {");
+            }
 
-        // codeGen.genCodeLine(" if (pos >= 100) return;");
-        // codeGen.genCodeLine(" if (pos == jj_endpos + 1) {");
-        // codeGen.genCodeLine(" jj_lasttokens[jj_endpos++] = kind;");
-        // codeGen.genCodeLine(" } else if (jj_endpos != 0) {");
-        // codeGen.genCodeLine(" jj_expentry = new int[jj_endpos];");
-        // codeGen.genCodeLine(" for (int i = 0; i < jj_endpos; i++) {");
-        // codeGen.genCodeLine(" jj_expentry[i] = jj_lasttokens[i];");
-        // codeGen.genCodeLine(" }");
-        // codeGen.genCodeLine(" jj_entries_loop: for (java.util.Iterator
-        // it = jj_expentries.iterator(); it.hasNext();) {");
-        // codeGen.genCodeLine(" int[] oldentry = (int[])(it->next());");
-        // codeGen.genCodeLine(" if (oldentry.length ==
-        // jj_expentry.length) {");
-        // codeGen.genCodeLine(" for (int i = 0; i < jj_expentry.length;
-        // i++) {");
-        // codeGen.genCodeLine(" if (oldentry[i] != jj_expentry[i]) {");
-        // codeGen.genCodeLine(" continue jj_entries_loop;");
-        // codeGen.genCodeLine(" }");
-        // codeGen.genCodeLine(" }");
-        // codeGen.genCodeLine(" jj_expentries.add(jj_expentry);");
-        // codeGen.genCodeLine(" break jj_entries_loop;");
-        // codeGen.genCodeLine(" }");
-        // codeGen.genCodeLine(" }");
-        // codeGen.genCodeLine(" if (pos != 0) jj_lasttokens[(jj_endpos =
-        // pos) - 1] = kind;");
-        // codeGen.genCodeLine(" }");
+            ccb.println("        if (oldentry.length == jj_expentry.length) {");
+            ccb.println("          boolean isMatched = true;");
+            ccb.println("          for (int i = 0; i < jj_expentry.length; i++) {");
+            ccb.println("            if (oldentry[i] != jj_expentry[i]) {");
+            ccb.println("              isMatched = false;");
+            ccb.println("              break;");
+            ccb.println("            }");
+            ccb.println("          }");
+            ccb.println("          if (isMatched) {");
+            ccb.println("            jj_expentries.add(jj_expentry);");
+            ccb.println("            break;");
+            ccb.println("          }");
+            ccb.println("        }");
+            ccb.println("      }");
+            ccb.println("      if (pos != 0) {");
+            ccb.println("        jj_lasttokens[(jj_endpos = pos) - 1] = kind;");
+            ccb.println("      }");
+        */
         ccb.println("}");
         ccb.println();
       }
 
+      /* generateParseException() */
       ccb.switchToIncludeFile();
       ccb.println("protected:");
       ccb.println("  /** Generate ParseException. */");
       ccb.generateMethodDefHeader("virtual void", context.globals().cu_name, "parseError()");
       ccb.println(" {");
-      if (Options.getErrorReporting()) {
-        ccb.println(
-            "  JJERR << JJWIDE(Parse error at : ) << token->beginLine() << JJWIDE(:) << token->beginColumn() << JJWIDE( after token: ) << addUnicodeEscapes(token->image()) << JJWIDE( encountered: ) << addUnicodeEscapes(getToken(1)->image()) << std::endl;");
-      }
+      ccb.println(
+          "  JJERR << JJWIDE(Parse error at:) << JJSPACE << token->beginLine() << JJWIDE(:)");
+      ccb.println("        << token->beginColumn() << JJSPACE << JJWIDE(after token:) << JJSPACE");
+      ccb.println(
+          "        << addUnicodeEscapes(token->image()) << JJWIDE(; encountered:) << JJSPACE");
+      ccb.println("        << addUnicodeEscapes(getToken(1)->image()) << std::endl;");
       ccb.println("}");
-      /*
-       * generateMethodDefHeader("ParseException", cu_name,
-       * "generateParseException()"); codeGen.genCodeLine("   {");
-       * //codeGen.genCodeLine("    jj_expentries.clear();");
-       * //codeGen.genCodeLine("    bool[] la1tokens = new boolean[" +
-       * tokenCount + "];");
-       * //codeGen.genCodeLine("    if (jj_kind >= 0) {");
-       * //codeGen.genCodeLine("      la1tokens[jj_kind] = true;");
-       * //codeGen.genCodeLine("      jj_kind = -1;");
-       * //codeGen.genCodeLine("    }");
-       * //codeGen.genCodeLine("    for (int i = 0; i < " + maskindex +
-       * "; i++) {");
-       * //codeGen.genCodeLine("      if (jj_la1[i] == jj_gen) {");
-       * //codeGen.genCodeLine("        for (int j = 0; j < 32; j++) {");
-       * //for (int i = 0; i < (tokenCount-1)/32 + 1; i++) {
-       * //codeGen.genCodeLine("          if ((jj_la1_" + i +
-       * "[i] & (1<<j)) != 0) {"); //genCode("            la1tokens["); //if (i
-       * != 0) { //genCode((32*i) + "+"); //}
-       * //codeGen.genCodeLine("j] = true;");
-       * //codeGen.genCodeLine("          }"); //}
-       * //codeGen.genCodeLine("        }");
-       * //codeGen.genCodeLine("      }");
-       * //codeGen.genCodeLine("    }");
-       * //codeGen.genCodeLine("    for (int i = 0; i < " + tokenCount +
-       * "; i++) {"); //codeGen.genCodeLine("      if (la1tokens[i]) {");
-       * //codeGen.genCodeLine("        jj_expentry = new int[1];");
-       * //codeGen.genCodeLine("        jj_expentry[0] = i;");
-       * //codeGen.genCodeLine("        jj_expentries.add(jj_expentry);");
-       * //codeGen.genCodeLine("      }");
-       * //codeGen.genCodeLine("    }"); //if (jj2index != 0) {
-       * //codeGen.genCodeLine("    jj_endpos = 0;");
-       * //codeGen.genCodeLine("    jj_rescan_token();");
-       * //codeGen.genCodeLine("    jj_add_error_token(0, 0);"); //}
-       * //codeGen.genCodeLine("    int exptokseq[][1] = new int[1];");
-       * //codeGen.
-       * genCodeLine("    for (int i = 0; i < jj_expentries.size(); i++) {");
-       * //if (!Options.getGenerateGenerics()) //codeGen.
-       * genCodeLine("      exptokseq[i] = (int[])jj_expentries.get(i);");
-       * //else //codeGen.
-       * genCodeLine("      exptokseq[i] = jj_expentries.get(i);");
-       * //codeGen.genCodeLine("    }");
-       * codeGen.genCodeLine("    return new _ParseException();");//token,
-       * nullptr, tokenImages);"); codeGen.genCodeLine(" }");
-       */
+      // For now we don't support full ERROR_REPORTING in the C++ version.
+      //      ccb.generateMethodDefHeader(
+      //          "ParseException", context.globals().cu_name, "generateParseException()");
+      //      ccb.println(" {");
+      /* java, to be translated
+            ccb.println("    jj_expentries.clear();");
+            ccb.println(
+                "    "
+                    + JavaUtil.getBooleanType()
+                    + "[] la1tokens = new "
+                    + JavaUtil.getBooleanType()
+                    + "["
+                    + context.globals().tokenCount
+                    + "];");
+            ccb.println("    if (jj_kind >= 0) {");
+            ccb.println("      la1tokens[jj_kind] = true;");
+            ccb.println("      jj_kind = -1;");
+            ccb.println("    }");
+            ccb.println("    for (int i = 0; i < " + context.globals().maskindex + "; i++) {");
+            ccb.println("      if (jj_la1[i] == jj_gen) {");
+            ccb.println("        for (int j = 0; j < 32; j++) {");
+            for (int i = 0; i < (((context.globals().tokenCount - 1) / 32) + 1); i++) {
+              ccb.println("          if ((jj_la1_" + i + "[i] & (1 << j)) != 0) {");
+              ccb.print("              la1tokens[");
+              if (i != 0) {
+                ccb.print((32 * i) + " + ");
+              }
+              ccb.println("j] = true;");
+              ccb.println("          }");
+            }
+            ccb.println("        }");
+            ccb.println("      }");
+            ccb.println("    }");
+            ccb.println("    for (int i = 0; i < " + context.globals().tokenCount + "; i++) {");
+            ccb.println("      if (la1tokens[i]) {");
+            ccb.println("        jj_expentry = new int[1];");
+            ccb.println("        jj_expentry[0] = i;");
+            ccb.println("        jj_expentries.add(jj_expentry);");
+            ccb.println("      }");
+            ccb.println("    }");
+            if (context.globals().jj2index != 0) {
+              ccb.println("    jj_endpos = 0;");
+              ccb.println("    jj_rescan_token();");
+              ccb.println("    jj_add_error_token(0, 0);");
+            }
+            ccb.println("    int[][] exptokseq = new int[jj_expentries.size()][];");
+            ccb.println("    for (int i = 0; i < jj_expentries.size(); i++) {");
+            if (!Options.getGenerateGenerics()) {
+              ccb.println("      exptokseq[i] = (int[])jj_expentries.get(i);");
+            } else {
+              ccb.println("      exptokseq[i] = jj_expentries.get(i);");
+            }
+            ccb.println("    }");
+            // no modern mode
+            ccb.println(
+                "    return new ParseException(token, exptokseq, tokenImage, jj_exp_Line, jj_exp_Column);");
+      */
+      //      ccb.println("}");
     } else {
+      // no error reporting
+      /* parseError() instead of generateParseException() */
       ccb.println("protected:");
       ccb.println("  /** Generate ParseException. */");
       ccb.generateMethodDefHeader("virtual void", context.globals().cu_name, "parseError()");
       ccb.println(" {");
-      if (Options.getErrorReporting()) {
-        ccb.println(
-            "  JJERR << "
-                + "JJWIDE(Parse error at : ) << token->beginLine() << JJWIDE(:) "
-                + "<< token->beginColumn() << JJWIDE( after token: ) << addUnicodeEscapes(token->image())"
-                + " << JJWIDE( encountered: ) << addUnicodeEscapes(getToken(1)->image()) << std::endl;");
-      }
+      ccb.println("  JJERR << JJWIDE(Parse error after token:) << JJSPACE");
+      ccb.println(
+          "        << addUnicodeEscapes(token->image()) << JJWIDE(; encountered:) << JJSPACE");
+      ccb.println("        << addUnicodeEscapes(getToken(1)->image()) << std::endl;");
       ccb.println("}");
-      /*
-       * generateMethodDefHeader("ParseException", cu_name,
-       * "generateParseException()"); codeGen.genCodeLine("   {");
-       * codeGen.genCodeLine("    Token* errortok = token->next();"); if
-       * (Options.getKeepLineColumn()) codeGen.
-       * genCodeLine("    int line = errortok.beginLine, column = errortok.beginColumn;"
-       * ); codeGen.
-       * genCodeLine("    JJString mess = (errortok->kind() == 0) ? tokenImages[0] : errortok->image();"
-       * ); if (Options.getKeepLineColumn())
-       * codeGen.genCodeLine("    return new _ParseException();");// +
-       * //"\"Parse error at line \" + line + \", column \" + column + \".  " +
-       * //"Encountered: \" + mess);"); else
-       * codeGen.genCodeLine("    return new _ParseException();");//
-       * \"Parse error at <unknown location>.  " +
-       * //"Encountered: \" + mess);"); codeGen.genCodeLine("  }");
-       */
+      // For now we don't support full ERROR_REPORTING in the C++ version.
+      //      ccb.generateMethodDefHeader(
+      //          "ParseException", context.globals().cu_name, "generateParseException()");
+      //      ccb.println("   {");
+      /* java, to be translated
+           ccb.println("    Token errortok = token.next;");
+           if (Options.getKeepLineColumn()) {
+             ccb.println("    int line = errortok.beginLine, column = errortok.beginColumn;");
+           }
+           ccb.println("    String mess = (errortok.kind == 0) ? tokenImage[0] : errortok.image;");
+           if (Options.getKeepLineColumn()) {
+             ccb.println(
+                 "    return new ParseException("
+                     + "\"Parse error at line \" + line + \", column \" + column + \".  "
+                     + "Encountered: \" + mess);");
+           } else {
+             ccb.println(
+                 "    return new ParseException(\"Parse error at <unknown location>.  "
+                     + "Encountered: \" + mess);");
+           }
+      */
+      //      ccb.println("  }");
     }
     ccb.println();
 
     ccb.switchToIncludeFile();
     ccb.println("private:");
-    ccb.println("  int  indent; // trace indentation");
+
+    /* indent & display */
+
+    if (Options.getDebugParser() || Options.getDebugLookahead()) {
+
+      ccb.println("  /** Parser & lookahead tracing indentation. */");
+      ccb.println("  int trace_indent = 0;");
+      ccb.println();
+
+      ccb.println("  /** Display a token. */");
+      ccb.generateMethodDefHeader(
+          "JJString", context.globals().cu_name, "disp_token(const Token* t)");
+      ccb.println("  {");
+      ccb.println(
+          "    JJString s = \"<\" + std::to_string(t->kind()) + \" / \" + getTokenImage(t->kind());");
+      ccb.println(
+          "    if (t->kind() != 0 && (getTokenImage(t->kind()) != (\"\\\"\" + t->image() + \"\\\"\"))) {");
+      ccb.println("      s += \" / \\\"\" + " + "addUnicodeEscapes(t->image()) + \"\\\"\";");
+      ccb.println("    }");
+      ccb.println("    s += \">\";");
+      ccb.println("    return s;");
+      ccb.println("  }");
+      ccb.println();
+    } // end if (Options.getDebugParser() || Options.getDebugLookahead())
+
+    /* parser trace */
+
+    ccb.switchToIncludeFile();
+    ccb.println("  /** Parser tracing flag. */");
     ccb.println("  bool trace = " + Options.getDebugParser() + ";");
+    ccb.println();
+
+    ccb.println("  /** Lookahead tracing flag. */");
     ccb.println("  bool trace_la = " + Options.getDebugLookahead() + ";");
     ccb.println();
+
     ccb.println("public:");
     ccb.generateMethodDefHeader("bool", context.globals().cu_name, "trace_enabled()");
     ccb.println("  {");
@@ -741,6 +825,7 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
     ccb.println("  return trace_la;");
     ccb.println("}");
     ccb.println();
+
     if (Options.getDebugParser()) {
       ccb.switchToIncludeFile();
       ccb.generateMethodDefHeader("void", context.globals().cu_name, "enable_tracing()");
@@ -760,20 +845,24 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
       ccb.generateMethodDefHeader("void", context.globals().cu_name, "trace_call(const char *s)");
       ccb.println(" {");
       ccb.println("  if (trace_enabled()) {");
-      ccb.println("    for (int no = 0; no < indent; no++) { JJLOG << JJSPACE; }");
-      ccb.println("    JJLOG << \"Call:   \" << s << std::endl;");
+      ccb.println("    for (int no = 0; no < trace_indent; no++) { JJLOG << JJSPACE; }");
+      ccb.println(
+          "    JJLOG << JJWIDE(Call:) << JJSPACE << JJSPACE << JJSPACE << s"
+              + "          << JJSPACE << JJWIDE((pa)) << std::endl;");
       ccb.println("  }");
-      ccb.println("  indent += 2;");
+      ccb.println("  trace_indent += 2;");
       ccb.println("}");
       ccb.println();
 
       ccb.switchToIncludeFile();
       ccb.generateMethodDefHeader("void", context.globals().cu_name, "trace_return(const char *s)");
       ccb.println(" {");
-      ccb.println("  indent -= 2;");
+      ccb.println("  trace_indent -= 2;");
       ccb.println("  if (trace_enabled()) {");
-      ccb.println("    for (int no = 0; no < indent; no++) { JJLOG << JJSPACE; }");
-      ccb.println("    JJLOG << \"Return: \" << s << std::endl;");
+      ccb.println("    for (int no = 0; no < trace_indent; no++) { JJLOG << JJSPACE; }");
+      ccb.println(
+          "    JJLOG << JJWIDE(Return:) << JJSPACE << s"
+              + "          << JJSPACE << JJWIDE((pa)) << std::endl;");
       ccb.println("  }");
       ccb.println("}");
       ccb.println();
@@ -783,55 +872,21 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
           "void", context.globals().cu_name, "trace_token(const Token* token, const char* where)");
       ccb.println(" {");
       ccb.println("  if (trace_enabled()) {");
-      ccb.println("    for (int no = 0; no < indent; no++) { JJLOG << JJSPACE; }");
-      ccb.println("    JJLOG << JJWIDE(Consumed token: <) << token->kind() << JJCOMMA << JJSPACE");
-      ccb.println(
-          "          << JJDBQUOTE << addUnicodeEscapes("
-              + getTokenImages()
-              + "[token->kind()]) << JJDBQUOTE;");
-      ccb.println(
-          "    if (token->kind() != 0 && "
-              + getTokenImages()
-              + "[token->kind()] != token->image()) {");
-      ccb.println(
-          "       JJLOG << JJSPACE << JJDBQUOTE << addUnicodeEscapes(token->image()) << JJDBQUOTE;");
-      ccb.println("    }");
-      ccb.println("    JJLOG << JJWIDE(> at) << JJSPACE << token->beginLine() << JJWIDE(:)");
-      ccb.println("          << token->beginColumn() << *where << std::endl;");
-      ccb.println("  }");
-      ccb.println("}");
-      ccb.println();
+      ccb.println("    for (int no = 0; no < trace_indent; no++) { JJLOG << JJSPACE; }");
 
-      ccb.switchToIncludeFile();
-      ccb.generateMethodDefHeader(
-          "void", context.globals().cu_name, "trace_scan(const Token* token, int t2)");
-      ccb.println(" {");
-      ccb.println("  if (trace_la_enabled()) {");
-      ccb.println("    for (int no = 0; no < indent; no++) { JJLOG << JJSPACE; }");
-      ccb.println("    JJLOG << JJWIDE(Visited  token: <) << token->kind() << JJCOMMA << JJSPACE");
-      ccb.println(
-          "          << JJDBQUOTE << addUnicodeEscapes("
-              + getTokenImages()
-              + "[token->kind()]) << JJDBQUOTE;");
-      ccb.println(
-          "    if (token->kind() != 0 && "
-              + getTokenImages()
-              + "[token->kind()] != token->image()) {");
-      ccb.println(
-          "       JJLOG << JJSPACE << JJDBQUOTE << addUnicodeEscapes(token->image()) << JJDBQUOTE;");
-      ccb.println("    }");
-      ccb.println("    JJLOG << JJWIDE(> at) << JJSPACE << token->beginLine() << JJWIDE(:)");
-      ccb.print("          << token->beginColumn() << JJWIDE(; Expected token: <)");
-      ccb.println(" << t2 << JJCOMMA << JJSPACE");
-      ccb.println(
-          "          << addUnicodeEscapes("
-              + getTokenLabels()
-              + "[t2]) << JJWIDE(>) << std::endl;");
+      ccb.println("    JJLOG << JJWIDE(Consumed token:) << JJSPACE << disp_token(token);");
+      if (Options.getKeepLineColumn()) {
+        ccb.println(
+            "    JJLOG << JJCOMMA << JJSPACE << JJWIDE(at) << JJSPACE << "
+                + "token->beginLine() << JJWIDE(:) << token->beginColumn()");
+      }
+      ccb.println("    JJLOG << where << JJSPACE << JJWIDE((pa)) << std::endl;");
       ccb.println("  }");
       ccb.println("}");
       ccb.println();
 
     } else {
+      // no debug parser
       ccb.switchToIncludeFile();
       ccb.generateMethodDefHeader("void", context.globals().cu_name, "enable_tracing()");
       ccb.println(" {");
@@ -842,6 +897,8 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
       ccb.println("}");
       ccb.println();
     }
+
+    /* lookahead trace */
 
     if (Options.getDebugLookahead()) {
       ccb.switchToIncludeFile();
@@ -863,10 +920,12 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
           "void", context.globals().cu_name, "trace_la_call(const char *s)");
       ccb.println(" {");
       ccb.println("  if (trace_la_enabled()) {");
-      ccb.println("    for (int no = 0; no < indent; no++) { JJLOG << JJSPACE; }");
-      ccb.println("    JJLOG << \"Call:   \" << s << std::endl;");
+      ccb.println("    for (int no = 0; no < trace_indent; no++) { JJLOG << JJSPACE; }");
+      ccb.println(
+          "    JJLOG << JJWIDE(Call:) << JJSPACE << JJSPACE << JJSPACE << s"
+              + "          << JJSPACE << JJWIDE((la)) << std::endl;");
       ccb.println("  }");
-      ccb.println("  indent += 2;");
+      ccb.println("  trace_indent += 2;");
       ccb.println("}");
       ccb.println();
 
@@ -874,14 +933,39 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
       ccb.generateMethodDefHeader(
           "void", context.globals().cu_name, "trace_la_return(const char *s)");
       ccb.println(" {");
-      ccb.println("  indent -= 2;");
+      ccb.println("  trace_indent -= 2;");
       ccb.println("  if (trace_la_enabled()) {");
-      ccb.println("    for (int no = 0; no < indent; no++) { JJLOG << JJSPACE; }");
-      ccb.println("    JJLOG << \"Return: \" << s << std::endl;");
+      ccb.println("    for (int no = 0; no < trace_indent; no++) { JJLOG << JJSPACE; }");
+      ccb.println(
+          "    JJLOG << JJWIDE(Return:) << JJSPACE << s"
+              + "          << JJSPACE << JJWIDE((la)) << std::endl;");
       ccb.println("  }");
       ccb.println("}");
       ccb.println();
+
+      ccb.switchToIncludeFile();
+      ccb.generateMethodDefHeader(
+          "void", context.globals().cu_name, "trace_scan(const Token* t1, int k2)");
+      ccb.println(" {");
+      ccb.println("  if (trace_la_enabled()) {");
+      ccb.println("    for (int no = 0; no < trace_indent; no++) { JJLOG << JJSPACE; }");
+      ccb.println("    JJLOG << JJWIDE(Visited token:) << JJSPACE << disp_token(t1);");
+      if (Options.getKeepLineColumn()) {
+        ccb.println(
+            "    JJLOG << JJCOMMA << JJSPACE << JJWIDE(at) << JJSPACE << t1->beginLine() << JJWIDE(:) << t1->beginColumn();");
+      }
+      ccb.println(
+          "    JJLOG << JJWIDE(; Expected token: <) << k2 << JJSPACE << JJWIDE(/) << JJSPACE");
+      ccb.println(
+          "          << addUnicodeEscapes("
+              + getTokenLabels()
+              + "[k2]) << JJWIDE(> (la)) << std::endl;");
+      ccb.println("  }");
+      ccb.println("}");
+      ccb.println();
+
     } else {
+      // no debug lookahead
       ccb.switchToIncludeFile();
       ccb.generateMethodDefHeader("void", context.globals().cu_name, "enable_la_tracing()");
       ccb.println(" {");
@@ -1141,16 +1225,19 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
    * "<code>actions</code>" are Java source code, and "<code>conds</code>" translate to conditions
    * <br>
    * - so lets say "<code>f(conds[i])</code>" is <code>true</code> if the lookahead required by "
-   * <code>conds[i]
-   * </code>" is indeed the case. <br>
+   * <code>conds[i] </code>" is indeed the case. <br>
    * This method returns a string corresponding to the Java code for: <br>
    * <code>
-   * if (f(conds[0]) actions[0]<br>else if (f(conds[1]) actions[1]<br>. . .<br> else actions[action.length-1]
+   * if (f(conds[0]) actions[0]<br>
+   * else if (f(conds[1]) actions[1]<br>
+   * . . .<br>
+   * else actions[action.length-1]
    * </code> <br>
    * A particular action entry ("<code>actions[i]</code>") can be <code>null</code>, in which case,
    * a noop is generated for that action.
    */
-  private String buildLookaheadChecker(final Lookahead[] conds, final String[] actions) {
+  private String buildLookaheadChecker(
+      final Lookahead[] conds, final String[] actions, final Expansion exp) {
 
     // The state variables.
     int state = NOOPENSTM;
@@ -1199,9 +1286,11 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
               retval += "\n" + "default:" + "\u0001";
               if (Options.getErrorReporting()) {
                 retval += "\njj_la1[" + context.globals().maskindex + "] = jj_gen;";
+                retval += "\njj_exp_Line = " + la.getLine() + ";";
+                retval += "\njj_exp_Column = " + la.getColumn() + ";";
                 context.globals().maskindex++;
+                context.globals().maskVals.add(tokenMask);
               }
-              context.globals().maskVals.add(tokenMask);
               retval += "\n" + "if (";
               indentAmt++;
           }
@@ -1245,7 +1334,7 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
                 retval += "jj_nt->kind()";
                 retval += ") {\u0001";
               } else {
-                retval += "(jj_ntk==-1)?jj_ntk_f():jj_ntk) {\u0001";
+                retval += "(jj_ntk == -1) ? jj_ntk_f() : jj_ntk) {\u0001";
               }
               for (int i = 0; i < context.globals().tokenCount; i++) {
                 casedValues[i] = false;
@@ -1304,9 +1393,11 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
             retval += "\n" + "default:" + "\u0001";
             if (Options.getErrorReporting()) {
               retval += "\njj_la1[" + context.globals().maskindex + "] = jj_gen;";
+              retval += "\njj_exp_Line = " + la.getLine() + ";";
+              retval += "\njj_exp_Column = " + la.getColumn() + ";";
               context.globals().maskindex++;
+              context.globals().maskVals.add(tokenMask);
             }
-            context.globals().maskVals.add(tokenMask);
             retval += "\n" + "if (";
             indentAmt++;
         }
@@ -1356,6 +1447,8 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
         retval += "\n" + "default:" + "\u0001";
         if (Options.getErrorReporting()) {
           retval += "\njj_la1[" + context.globals().maskindex + "] = jj_gen;";
+          retval += "\njj_exp_Line = " + exp.getLine() + ";";
+          retval += "\njj_exp_Column = " + exp.getColumn() + ";";
           context.globals().maskVals.add(tokenMask);
           context.globals().maskindex++;
         }
@@ -1382,10 +1475,11 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
         // do nothing - we've already printed a new line for the '\r'
         // during the previous iteration.
       } else if ((ch == '\n') || (ch == '\r')) {
+        ccb.println();
         if (indentOn) {
-          phase1NewLine();
-        } else {
-          ccb.println();
+          for (int i1 = 0; i1 < indentamt; i1++) {
+            ccb.print(' ');
+          }
         }
       } else if (ch == '\u0001') {
         indentamt += 2;
@@ -1493,20 +1587,20 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
     if (Options.getDebugParser()) {
       ccb.println();
       ccb.println(
-          "  JJEnter<std::function<void()>> jjenter([this]() {trace_call  (\""
+          "  JJEnter<std::function<void()>> jjenter([this]() { trace_call  (\""
               + ccb.escapeToUnicode(p.getLhs())
               + "\"); });");
       ccb.println(
-          "  JJExit <std::function<void()>> jjexit ([this]() {trace_return(\""
+          "  JJExit <std::function<void()>> jjexit ([this]() { trace_return(\""
               + ccb.escapeToUnicode(p.getLhs())
               + "\"); });");
-      //      codeGen.println("  try {");
       ccb.print("  try {");
       indentamt += 2;
     }
 
-    if (!Options.booleanValue(Options.UO__IGNORE_ACTIONS)
+    if (!Options.getIgnoreActions()
         && (p.getDeclarationTokens().size() != 0)) {
+      ccb.println();
       ccb.printTokenSetup(p.getDeclarationTokens().get(0));
       for (final Iterator<Token> it = p.getDeclarationTokens().iterator(); it.hasNext(); ) {
         t = it.next();
@@ -1523,7 +1617,8 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
       ccb.println("  throw \"Missing return statement in function\";");
     }
     if (Options.getDebugParser()) {
-      ccb.println("  } catch(...) { }");
+      ccb.println("  } catch(...) {");
+      ccb.println("  }");
       indentamt -= 2;
     }
     if (!voidReturn) {
@@ -1535,13 +1630,6 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
     }
     ccb.println("}");
     ccb.println();
-  }
-
-  private void phase1NewLine() {
-    ccb.println();
-    for (int i = 0; i < indentamt; i++) {
-      ccb.print(' ');
-    }
   }
 
   private int gensymindex = 0;
@@ -1607,7 +1695,7 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
     } else if (e instanceof Action) {
       final Action e_nrw = (Action) e;
       retval += "\u0003\n";
-      if (!Options.booleanValue(Options.UO__IGNORE_ACTIONS)
+      if (!Options.getIgnoreActions()
           && (e_nrw.getActionTokens().size() != 0)) {
         ccb.printTokenSetup(e_nrw.getActionTokens().get(0));
         for (final Iterator<Token> it = e_nrw.getActionTokens().iterator(); it.hasNext(); ) {
@@ -1634,7 +1722,7 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
         actions[i] = phase1ExpansionGen(nestedSeq);
         conds[i] = (Lookahead) nestedSeq.units.get(0);
       }
-      retval = buildLookaheadChecker(conds, actions);
+      retval = buildLookaheadChecker(conds, actions, e);
     } else if (e instanceof Sequence) {
       final Sequence e_nrw = (Sequence) e;
       // We skip the first element in the following iteration since it is the Lookahead object.
@@ -1678,7 +1766,7 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
       actions[0] = "\n;";
       actions[1] = "\ngoto end_label_" + labelIndex + ";";
 
-      retval += buildLookaheadChecker(conds, actions);
+      retval += buildLookaheadChecker(conds, actions, e);
       retval += "\u0002\n" + "}";
       retval += "\nend_label_" + labelIndex + ": ;";
     } else if (e instanceof ZeroOrMore) {
@@ -1700,7 +1788,7 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
       actions = new String[2];
       actions[0] = "\n;";
       actions[1] = "\ngoto end_label_" + labelIndex + ";";
-      retval += buildLookaheadChecker(conds, actions);
+      retval += buildLookaheadChecker(conds, actions, e);
       retval += phase1ExpansionGen(nested_e);
       retval += "\u0002\n" + "}";
       retval += "\nend_label_" + labelIndex + ": ;";
@@ -1720,7 +1808,7 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
       actions = new String[2];
       actions[0] = phase1ExpansionGen(nested_e);
       actions[1] = "\n;";
-      retval += buildLookaheadChecker(conds, actions);
+      retval += buildLookaheadChecker(conds, actions, e);
     } else if (e instanceof TryBlock) {
       final TryBlock e_nrw = (TryBlock) e;
       final Expansion nested_e = e_nrw.exp;
@@ -1990,7 +2078,12 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
     }
 
     if (!recursive_call) {
-      ccb.println("  inline bool ", "jj_3" + internalNames.get(e) + "() {");
+      if (Options.getDebugLookahead()) {
+        ccb.print("  bool ");
+      } else {
+        ccb.print("  inline bool ");
+      }
+      ccb.println("jj_3" + internalNames.get(e) + "() {");
       ccb.println("    if (jj_done) return true;");
       if (Options.getDepthLimit() > 0) {
         ccb.println("#define __ERROR_RET__ true");
@@ -2340,11 +2433,11 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
         if (Options.getDebugParser()) {
           ccb.println();
           ccb.println(
-              "    JJEnter<std::function<void()>> jjenter([this]() {trace_call  (\""
+              "    JJEnter<std::function<void()>> jjenter([this]() { trace_call  (\""
                   + ccb.escapeToUnicode(cp.getLhs())
                   + "\"); });");
           ccb.println(
-              "    JJExit <std::function<void()>> jjexit ([this]() {trace_return(\""
+              "    JJExit <std::function<void()>> jjexit ([this]() { trace_return(\""
                   + ccb.escapeToUnicode(cp.getLhs())
                   + "\"); });");
           ccb.println("    try {");
@@ -2355,7 +2448,8 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
         }
         ccb.println();
         if (Options.getDebugParser()) {
-          ccb.println("    } catch(...) { }");
+          ccb.println("    } catch(...) {");
+          ccb.println("    }");
         }
         ccb.println("  }");
         ccb.println();
