@@ -12,7 +12,7 @@ modification, are permitted provided that the following conditions are met:
     * Redistributions in binary form must reproduce the above copyright
       notice, this list of conditions and the following disclaimer in the
       documentation and/or other materials provided with the distribution.
-    * Neither the names of of the copyright holders nor the names of its
+    * Neither the names of the copyright holders nor the names of its
       contributors may be used to endorse or promote products derived from
       this software without specific prior written permission.
 
@@ -49,6 +49,11 @@ THE POSSIBILITY OF SUCH DAMAGE.
   <url>https://github.com/javacc/javacc-8-cpp</url>
   <inceptionYear>2010</inceptionYear>
 
+  <!-- 
+       c++ code generator pom
+       defines specific settings (dependencies, integration tests profile)
+  -->
+
   <organization>
     <name>javacc.org</name>
     <url>https://javacc.github.io/javacc/</url>
@@ -83,37 +88,6 @@ THE POSSIBILITY OF SUCH DAMAGE.
     </dependency>
   </dependencies>
 
-  <build>
-
-    <pluginManagement>
-
-      <plugins>
-        <plugin>
-          <groupId>com.github.maven-nar</groupId>
-          <artifactId>nar-maven-plugin</artifactId>
-          <version>3.10.1</version>
-          <!-- snapshot not published on sonatype snapshot repo!-->
-          <!--          <version>3.10.2-SNAPSHOT</version>-->
-          <extensions>true</extensions>
-          <!-- for lifecycle see under
-               https://github.com/maven-nar/nar-maven-plugin/blob/master/src/main/resources/META-INF -->
-        </plugin>
-      </plugins>
-
-    </pluginManagement>
-
-    <plugins>
-
-      <plugin>
-        <groupId>com.github.maven-nar</groupId>
-        <artifactId>nar-maven-plugin</artifactId>
-        <extensions>true</extensions>
-      </plugin>
-
-    </plugins>
-
-  </build>
-
   <profiles>
 
     <profile>
@@ -131,82 +105,169 @@ THE POSSIBILITY OF SUCH DAMAGE.
             <artifactId>maven-invoker-plugin</artifactId>
 
             <configuration>
+              <!-- install conf: see
+              https://maven.apache.org/plugins/maven-invoker-plugin/install-mojo.html-->
+              <localRepositoryPath>${project.basedir}/it/local-repo</localRepositoryPath>
+              <!-- run conf: see
+              https://maven.apache.org/plugins/maven-invoker-plugin/run-mojo.html#invokerPropertiesFile-->
+              <debug>false</debug>
               <failIfNoProjects>true</failIfNoProjects>
               <ignoreFailures>false</ignoreFailures>
-              <streamLogs>true</streamLogs>
-              <debug>false</debug>
               <!--              <postBuildHookScript>verify.bsh</postBuildHookScript>-->
-              <localRepositoryPath>${project.basedir}/it/local-repo</localRepositoryPath>
+              <settingsFile>${project.basedir}/it/settings.xml</settingsFile>
+              <streamLogs>true</streamLogs>
             </configuration>
 
             <executions>
 
               <execution>
-                <id>integration-test-cpp-bugs</id>
+                <id>integration-test-cpp-install</id>
                 <goals>
                   <goal>install</goal>
+                </goals>
+              </execution>
+
+              <execution>
+                <id>integration-test-cpp-issues</id>
+                <goals>
                   <goal>run</goal>
                 </goals>
                 <configuration>
-                  <projectsDirectory>bugs</projectsDirectory>
-                  <settingsFile>bugs/settings.xml</settingsFile>
-                  <ignoreFailures>false</ignoreFailures>
+                  <skipInvocation>${skip.it.cpp.issues}</skipInvocation>
+                  <projectsDirectory>issues</projectsDirectory>
                 </configuration>
               </execution>
 
               <execution>
                 <id>integration-test-cpp-examples</id>
                 <goals>
-                  <goal>install</goal>
                   <goal>run</goal>
                 </goals>
                 <configuration>
+                  <skipInvocation>${skip.it.cpp.examples}</skipInvocation>
                   <projectsDirectory>examples</projectsDirectory>
-                  <settingsFile>examples/settings.xml</settingsFile>
-                  <ignoreFailures>false</ignoreFailures>
                 </configuration>
               </execution>
 
-              <!-- the maven invoker plugin does not use the modules defined in the grammars/pom.xml
-                   in which the cobol module is commented out, so we have splitted here the single
-                   execution in 3 to be able to skip the cobol module build failure -->
               <execution>
-                <id>integration-test-cpp-grammars-cobol-install</id>
-                <goals>
-                  <goal>install</goal>
-                </goals>
-              </execution>
-              <execution>
-                <id>integration-test-cpp-grammars-cobol</id>
+                <id>integration-test-cpp-grammars</id>
                 <goals>
                   <goal>run</goal>
                 </goals>
                 <configuration>
+                  <skipInvocation>${skip.it.cpp.grammars}</skipInvocation>
                   <projectsDirectory>grammars</projectsDirectory>
-                  <settingsFile>grammars/settings.xml</settingsFile>
-                  <ignoreFailures>true</ignoreFailures>
-                  <pomIncludes>cobol</pomIncludes>
-                </configuration>
-              </execution>
-              <execution>
-                <id>integration-test-cpp-grammars-nocobol</id>
-                <goals>
-                  <goal>run</goal>
-                </goals>
-                <configuration>
-                  <projectsDirectory>grammars</projectsDirectory>
-                  <settingsFile>grammars/settings.xml</settingsFile>
-                  <ignoreFailures>false</ignoreFailures>
-                  <pomExcludes>cobol/pom.xml</pomExcludes>
                 </configuration>
               </execution>
 
             </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
 
+    <profile>
+      <!-- Sets a set of properties for skipping some integration tests; needs explicit activation -->
+      <id>only-it-cpp-issues</id>
+      <properties>
+        <skip.it.cpp.issues>false</skip.it.cpp.issues>
+        <skip.it.cpp.examples>true</skip.it.cpp.examples>
+        <skip.it.cpp.grammars>true</skip.it.cpp.grammars>
+      </properties>
+    </profile>
+
+    <profile>
+      <!-- Relays activating a profile in the invoked tests; needs explicit activation -->
+      <id>failOnError-check-cpp-issues</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-invoker-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>integration-test-cpp-issues</id>
+                <goals>
+                  <goal>run</goal>
+                </goals>
+                <configuration>
+                  <profiles>failOnError-check-cpp-issues</profiles>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
+    <profile>
+      <!-- Sets a set of properties for skipping some integration tests; needs explicit activation -->
+      <id>only-it-cpp-examples</id>
+      <properties>
+        <skip.it.cpp.issues>true</skip.it.cpp.issues>
+        <skip.it.cpp.examples>false</skip.it.cpp.examples>
+        <skip.it.cpp.grammars>true</skip.it.cpp.grammars>
+      </properties>
+    </profile>
+
+    <profile>
+      <!-- Relays activating a profile in the invoked tests; needs explicit activation -->
+      <id>failOnError-check-cpp-examples</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-invoker-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>integration-test-cpp-examples</id>
+                <goals>
+                  <goal>run</goal>
+                </goals>
+                <configuration>
+                  <profiles>failOnError-check-cpp-examples</profiles>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
+    <profile>
+      <!-- Sets a set of properties for skipping some integration tests; needs explicit activation -->
+      <id>only-it-cpp-grammars</id>
+      <properties>
+        <skip.it.cpp.issues>true</skip.it.cpp.issues>
+        <skip.it.cpp.examples>true</skip.it.cpp.examples>
+        <skip.it.cpp.grammars>false</skip.it.cpp.grammars>
+      </properties>
+    </profile>
+
+    <profile>
+      <!-- Relays activating a profile in the invoked tests; needs explicit activation -->
+      <id>failOnError-check-cpp-grammars</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-invoker-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>integration-test-cpp-grammars</id>
+                <goals>
+                  <goal>run</goal>
+                </goals>
+                <configuration>
+                  <profiles>failOnError-check-cpp-grammars</profiles>
+                </configuration>
+              </execution>
+            </executions>
           </plugin>
         </plugins>
       </build>
     </profile>
 
   </profiles>
+
 </project>

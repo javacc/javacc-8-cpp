@@ -12,7 +12,7 @@ modification, are permitted provided that the following conditions are met:
     * Redistributions in binary form must reproduce the above copyright
       notice, this list of conditions and the following disclaimer in the
       documentation and/or other materials provided with the distribution.
-    * Neither the names of of the copyright holders nor the names of its
+    * Neither the names of the copyright holders nor the names of its
       contributors may be used to endorse or promote products derived from
       this software without specific prior written permission.
 
@@ -54,4 +54,29 @@ THE POSSIBILITY OF SUCH DAMAGE.
     <module>UserTokenManager</module>
   </modules>
   
+  <profiles>
+
+    <profile>
+      <!-- Sets a set of properties for skipping execution & results checking of tests in
+      submodules; needs explicit activation -->
+      <id>skip-test-cpp-examples</id>
+      <properties>
+        <skip.test.cpp.examples.CORBA-IDL>true</skip.test.cpp.examples.CORBA-IDL>
+        <skip.test.cpp.examples.MailProcessing.Digest>true</skip.test.cpp.examples.MailProcessing.Digest>
+        <skip.test.cpp.examples.MailProcessing.Faq>true</skip.test.cpp.examples.MailProcessing.Faq>
+      </properties>
+    </profile>
+    <profile>
+      <!-- Sets a set of properties for not failing on error in checking results in submodules;
+           needs explicit activation -->
+      <id>failOnError-check-cpp-examples</id>
+      <properties>
+        <failOnError.check.cpp.examples.CORBA-IDL>false</failOnError.check.cpp.examples.CORBA-IDL>
+        <failOnError.check.cpp.examples.MailProcessing.Digest>false</failOnError.check.cpp.examples.MailProcessing.Digest>
+        <failOnError.check.cpp.examples.MailProcessing.Faq>false</failOnError.check.cpp.examples.MailProcessing.Faq>
+      </properties>
+    </profile>
+
+  </profiles>
+
 </project>

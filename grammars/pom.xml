@@ -12,7 +12,7 @@ modification, are permitted provided that the following conditions are met:
     * Redistributions in binary form must reproduce the above copyright
       notice, this list of conditions and the following disclaimer in the
       documentation and/or other materials provided with the distribution.
-    * Neither the names of of the copyright holders nor the names of its
+    * Neither the names of the copyright holders nor the names of its
       contributors may be used to endorse or promote products derived from
       this software without specific prior written permission.
 
@@ -49,11 +49,7 @@ THE POSSIBILITY OF SUCH DAMAGE.
     <module>asn1</module>
     <module>c</module>
     <module>chemical</module>
-    <!-- C++ compiling of CobolParser.h raises:
-         "fatal error C1061: compiler limit : blocks nested too deeply" (>128 nesting levels)
-         fixing this would mean to rewrite the grammar... or the generator
-         So the module is commented out here; see also the project's base pom.xml' -->
-    <!--    <module>cobol</module>-->
+    <module>cobol</module>
     <module>dtd</module>
     <module>ecma</module>
     <module>java_1.1</module>
