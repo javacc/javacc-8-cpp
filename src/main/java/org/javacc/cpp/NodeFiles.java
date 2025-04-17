@@ -89,7 +89,7 @@ final class NodeFiles {
     final CodeGeneratorSettings optionMap = CodeGeneratorSettings.of(Options.getOptions());
     optionMap.set("PARSER_NAME", JJTreeGlobals.parserName);
     optionMap.set("VISITOR_RETURN_TYPE", NodeFiles.getVisitorReturnType());
-    optionMap.set("VISITOR_DATA_TYPE", NodeFiles.getVisitorArgumentType());
+    optionMap.set("VISITOR_DATA_TYPE", NodeFiles.getVisitorDataType());
     optionMap.set(
         "VISITOR_RETURN_TYPE_VOID",
         Boolean.valueOf(NodeFiles.getVisitorReturnType().equals("void")));
@@ -118,7 +118,7 @@ final class NodeFiles {
     final CodeGeneratorSettings optionMap = CodeGeneratorSettings.of(Options.getOptions());
     optionMap.set(Options.NUO__PARSER_NAME, JJTreeGlobals.parserName);
     optionMap.set("VISITOR_RETURN_TYPE", NodeFiles.getVisitorReturnType());
-    optionMap.set("VISITOR_DATA_TYPE", NodeFiles.getVisitorArgumentType());
+    optionMap.set("VISITOR_DATA_TYPE", NodeFiles.getVisitorDataType());
     optionMap.set(
         "VISITOR_RETURN_TYPE_VOID",
         Boolean.valueOf(NodeFiles.getVisitorReturnType().equals("void")));
@@ -150,7 +150,7 @@ final class NodeFiles {
     final CodeGeneratorSettings optionMap = CodeGeneratorSettings.of(Options.getOptions());
     optionMap.set("PARSER_NAME", JJTreeGlobals.parserName);
     optionMap.set("VISITOR_RETURN_TYPE", NodeFiles.getVisitorReturnType());
-    optionMap.set("VISITOR_DATA_TYPE", NodeFiles.getVisitorArgumentType());
+    optionMap.set("VISITOR_DATA_TYPE", NodeFiles.getVisitorDataType());
     optionMap.set(
         "VISITOR_RETURN_TYPE_VOID",
         Boolean.valueOf(NodeFiles.getVisitorReturnType().equals("void")));
@@ -204,7 +204,7 @@ final class NodeFiles {
       final File file =
           new File(
               //              new File(
-              context.treeOptions().getASTNodeDirectory(),
+              context.treeOptions().getNodeDirectory(),
               //                  context.treeOptions().getNodePackage()),
               node + ".cc");
       if (file.exists()) {
@@ -214,7 +214,7 @@ final class NodeFiles {
       final CodeGeneratorSettings optionMap = CodeGeneratorSettings.of(Options.getOptions());
       optionMap.set(Options.NUO__PARSER_NAME, JJTreeGlobals.parserName);
       optionMap.set("VISITOR_RETURN_TYPE", NodeFiles.getVisitorReturnType());
-      optionMap.set("VISITOR_DATA_TYPE", NodeFiles.getVisitorArgumentType());
+      optionMap.set("VISITOR_DATA_TYPE", NodeFiles.getVisitorDataType());
       optionMap.set(
           "VISITOR_RETURN_TYPE_VOID",
           Boolean.valueOf(NodeFiles.getVisitorReturnType().equals("void")));
@@ -318,9 +318,13 @@ final class NodeFiles {
     return sb.toString();
   }
 
-  private static String getVisitorArgumentType() {
+  private static String getVisitorDataType() {
     final String ret = Options.stringValue("VISITOR_DATA_TYPE");
-    return (ret == null) || ret.equals("") || ret.equals("Object") ? "void *" : ret;
+    return (ret == null || ret.equals("") || ret.equals("Object")) ? "void*" : ret;
+  }
+
+  private static boolean getVisitorDataTypeIsPointer() {
+    return Options.booleanValue("VISITOR_DATA_TYPE_IS_POINTER");
   }
 
   private static String getVisitorReturnType() {
@@ -368,7 +372,7 @@ final class NodeFiles {
     ccb.println("class " + name);
     ccb.println("{");
 
-    String argumentType = NodeFiles.getVisitorArgumentType();
+    String argumentType = NodeFiles.getVisitorDataType();
     final String returnType = NodeFiles.getVisitorReturnType();
     if (!context.treeOptions().getVisitorDataType().equals("")) {
       argumentType = context.treeOptions().getVisitorDataType();
@@ -411,7 +415,7 @@ final class NodeFiles {
 
     ccb.println("class " + className + " : public " + NodeFiles.visitorClass() + " {");
 
-    final String argumentType = NodeFiles.getVisitorArgumentType();
+    final String argumentType = NodeFiles.getVisitorDataType();
     final String ret = NodeFiles.getVisitorReturnType();
 
     ccb.println("public:");
