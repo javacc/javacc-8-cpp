@@ -130,7 +130,7 @@ Token * ${parserName}TokenManager::getNextToken() {
         JJERR << disp_state(curLexState) << JJSPACE
               << JJWIDE(Reached EOF (1st)) 
 #if KEEP_LINE_COLUMN
-              << JJCOMMA << JJSPACE << JJWIDE(at L:C:) << JJSPACE
+              << JJCOMMA << JJSPACE << JJWIDE(@) << JJSPACE
               << input_stream->getBeginLine() << JJWIDE(:) << input_stream->getBeginColumn()
 #fi
               << JJSPACE << JJWIDE((tm)) << std::endl;
@@ -149,7 +149,7 @@ Token * ${parserName}TokenManager::getNextToken() {
     if (trace_enabled()) {
       JJERR << JJWIDE(Read 1st char for any kind:) << JJSPACE << disp_char(curChar)
 #if KEEP_LINE_COLUMN
-            << JJCOMMA << JJSPACE << JJWIDE(at L:C:) << JJSPACE
+            << JJCOMMA << JJSPACE << JJWIDE(@) << JJSPACE
             << input_stream->getBeginLine() << JJWIDE(:) << input_stream->getBeginColumn()
 #fi
             << JJSPACE << JJWIDE((tm)) << std::endl;
@@ -163,7 +163,7 @@ Token * ${parserName}TokenManager::getNextToken() {
       JJERR << disp_state(curLexState) << JJSPACE
             << JJWIDE(Current input char:) << JJSPACE << disp_char(curChar)
 #if KEEP_LINE_COLUMN
-            << JJCOMMA << JJSPACE << JJWIDE(at L:C:) << JJSPACE
+            << JJCOMMA << JJSPACE << JJWIDE(@) << JJSPACE
             << input_stream->getBeginLine() << JJWIDE(:) << input_stream->getBeginColumn()
 #fi
             << JJSPACE << JJWIDE((tm)) << std::endl;
@@ -272,6 +272,10 @@ Token * ${parserName}TokenManager::getNextToken() {
 #if DEBUG_TOKEN_MANAGER
           if (trace_enabled()) {
             JJERR << JJWIDE(Read next char for a MORE:) << JJSPACE << disp_char(curChar)
+#if KEEP_LINE_COLUMN
+            << JJCOMMA << JJSPACE << JJWIDE(@) << JJSPACE
+            << input_stream->getBeginLine() << JJWIDE(:) << input_stream->getBeginColumn()
+#fi
                   << JJSPACE << JJWIDE((tm)) << std::endl;
           }
 #fi
@@ -361,13 +365,13 @@ int ${parserName}TokenManager::jjRunStringLiteralMatch() {
 #if DEBUG_TOKEN_MANAGER
       if (trace_enabled()) {
         JJERR << JJSPACE << JJSPACE
-              << JJWIDE(Looking for string literal match of kind:) << JJSPACE
+              << JJWIDE(Looking for string literal match of token: <)
               << stringLiterals[index + len]
-              << JJCOMMA << JJSPACE << JJWIDE(token image:) << JJSPACE
+              << JJSPACE << JJWIDE(/) << JJSPACE
               << JJDBQUOTE
               << addUnicodeEscapes(tokenImages[stringLiterals[index + len]])
               << JJDBQUOTE
-              << JJSPACE << JJWIDE((tm)) << std::endl;
+              << JJSPACE << JJWIDE(> (tm)) << std::endl;
       }
 #fi
       do {
@@ -398,13 +402,13 @@ int ${parserName}TokenManager::jjRunStringLiteralMatch() {
           JJERR << JJSPACE << JJSPACE
                 << JJWIDE(Currently matched the first:) << JJSPACE
                 << jjmatchedPos
-                << JJSPACE << JJWIDE(chars as kind:) << JJSPACE
+                << JJSPACE << JJWIDE(chars as token: <)
                 << stringLiterals[index + len]
-                << JJCOMMA << JJSPACE << JJWIDE(token image:) << JJSPACE
+                << JJSPACE << JJWIDE(/) << JJSPACE
                 << JJDBQUOTE
                 << addUnicodeEscapes(tokenImages[jjmatchedKind])
                 << JJDBQUOTE
-                  << JJSPACE << JJWIDE((tm)) << std::endl;
+                << JJSPACE << JJWIDE(> (tm)) << std::endl;
         }
 #fi
         if (!moveToNextChar()) {
@@ -522,11 +526,11 @@ int ${parserName}TokenManager::jjMoveNfa(int startState, int curPos) {
       if (trace_enabled()) {
         JJERR << JJSPACE << JJSPACE << JJSPACE << JJSPACE 
               << JJWIDE(Looking to move from state:) << JJSPACE << disp_state(state)
-              << JJCOMMA << JJSPACE << JJWIDE(for token:) << JJSPACE
+              << JJCOMMA << JJSPACE << JJWIDE(for token: <)
               << (jjmatchKinds[state] != INT_MAX
-                     ? addUnicodeEscapes(tokenImages[jjmatchKinds[state]])
+                     ? (jjmatchKinds[state] + " / " + addUnicodeEscapes(tokenImages[jjmatchKinds[state]]))
                      : JJWIDE(<UNKNOWN>))
-            << JJSPACE << JJWIDE((tm)) << std::endl;
+              << JJSPACE << JJWIDE(> (tm)) << std::endl;
       }
 #fi
     bool canMoveThisNFAState = (jjChars[state][vectorIndex] & bitpattern) != 0L;
@@ -623,7 +627,7 @@ JJString ${parserName}TokenManager::disp_state(int state) {
 }
 
 JJString ${parserName}TokenManager::disp_char(int ic) {
-  return std::to_string(ic) + " / '" + add_escapes(ic) + "'";
+  return "`" + std::to_string(ic) + " / '" + add_escapes(ic) + "'´";
 }
 \#else
 JJString ${parserName}TokenManager::disp_state(int state) {

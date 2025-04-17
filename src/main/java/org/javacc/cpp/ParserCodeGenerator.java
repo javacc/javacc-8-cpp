@@ -246,8 +246,8 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
     if (Options.getErrorReporting()) {
       ccb.println("  int                    jj_gen;");
       ccb.println("  int                    jj_la1[" + (context.globals().maskindex + 1) + "];");
-      ccb.println("  int                    jj_exp_Line = -1;");
-      ccb.println("  int                    jj_exp_Column = -1;");
+      ccb.println(
+          "  char*                  jj_la1_loc[" + (context.globals().maskindex + 1) + "];");
     }
 
     ccb.println("  ParserErrorHandler*    errorHandler = nullptr;");
@@ -376,8 +376,10 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
     if (Options.getErrorReporting()) {
       ccb.println("  jj_gen = 0;");
       if (context.globals().maskindex > 0) {
-        ccb.println(
-            "  for (int i = 0; i < " + context.globals().maskindex + "; i++) { jj_la1[i] = -1; }");
+        ccb.println("  for (int i = 0; i < " + context.globals().maskindex + "; i++) {");
+        ccb.println("    jj_la1[i] = -1;");
+        ccb.println("    jj_la1_loc[i] = nullptr;");
+        ccb.println("  }");
       }
     }
     ccb.println("}");
@@ -432,7 +434,15 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
     }
 
     /* jj_consume_token(int kind) */
-    ccb.generateMethodDefHeader("Token*", context.globals().cu_name, "jj_consume_token(int kind)");
+    ccb.println(
+        "/** Consume a token of an expected given kind, throwing an exception if different. */");
+    if (Options.getErrorReporting()) {
+      ccb.generateMethodDefHeader(
+          "Token*", context.globals().cu_name, "jj_consume_token(int kind, char* loc)");
+    } else {
+      ccb.generateMethodDefHeader(
+          "Token*", context.globals().cu_name, "jj_consume_token(int kind)");
+    }
     ccb.println(" {");
     if (!Options.getStackLimit().equals("")) {
       ccb.println("  if (kind != -1 && (jj_stack_error || jj_stack_check(false))) {");
@@ -443,13 +453,13 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
       ccb.println("    return jj_consume_token(-1);");
       ccb.println("  }");
     }
+    ccb.println("  Token* oldToken = token;");
     if (Options.getCacheTokens()) {
-      ccb.println("  Token* oldToken = token;");
       ccb.println("  if ((token = jj_nt)->next() != nullptr) jj_nt = jj_nt->next();");
       ccb.println("  else jj_nt = jj_nt->next() = token_source->getNextToken();");
     } else {
       ccb.println("  Token* oldToken;");
-      ccb.println("  if ((oldToken = token)->next() != nullptr) token = token->next();");
+      ccb.println("  if (token->next() != nullptr) token = token->next();");
       ccb.println("  else token = token->next() = token_source->getNextToken();");
       ccb.println("  jj_ntk = -1;");
     }
@@ -457,7 +467,7 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
     if (Options.getErrorReporting()) {
       ccb.println("    jj_gen++;");
       if (context.globals().jj2index != 0) {
-        ccb.println("    if (++jj_gc > 100) {");
+        ccb.println("    if (++jj_gc > MAX_NB_POS) {");
         ccb.println("      jj_gc = 0;");
         ccb.println("      for (int i = 0; i < " + context.globals().jj2index + "; i++) {");
         ccb.println("        JJCalls *c = &jj_2_rtns[i];");
@@ -470,12 +480,15 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
       }
     }
     if (Options.getDebugParser()) {
-      ccb.println("    trace_token(token, \" (in jj_consume_token())\");");
+      ccb.println("    trace_consumed(token, \" (in jj_consume_token())\");");
     }
     ccb.println("    return token;");
     ccb.println("  }");
     if (Options.getCacheTokens()) {
       ccb.println("  jj_nt = token;");
+    }
+    if (Options.getDebugLookahead()) {
+      ccb.println("    if (kind >= 0) trace_expected(kind, token, loc);");
     }
     ccb.println("  token = oldToken;");
     if (Options.getErrorReporting()) {
@@ -492,7 +505,7 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
     ccb.println("  const JJString actualImage   = getTokenImage(actualToken->kind());");
     ccb.println("  const JJString actualLabel   = getTokenLabel(actualToken->kind());");
     ccb.println(
-        "  errorHandler->unexpectedToken(expectedImage, expectedLabel, actualImage, actualLabel, actualToken);");
+        "  errorHandler->unexpectedToken(expectedImage, expectedLabel, actualImage, actualLabel, actualToken, loc);");
     if (!Options.getStackLimit().equals("")) {
       ccb.println("  }");
     }
@@ -503,8 +516,15 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
 
     /* jj_scan_token(int kind) */
     if (context.globals().jj2index != 0) {
+      ccb.println(
+          "/** Scans for a token of a given expected kind, returning success or failure. */");
       ccb.switchToMainFile();
-      ccb.generateMethodDefHeader("bool", context.globals().cu_name, "jj_scan_token(int kind)");
+      if (Options.getErrorReporting()) {
+        ccb.generateMethodDefHeader(
+            "bool", context.globals().cu_name, "jj_scan_token(int kind, char* loc)");
+      } else {
+        ccb.generateMethodDefHeader("bool", context.globals().cu_name, "jj_scan_token(int kind)");
+      }
       ccb.println(" {");
       if (!Options.getStackLimit().equals("")) {
         ccb.println("  if (kind != -1 && (jj_stack_error || jj_stack_check(false))) {");
@@ -533,7 +553,7 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
         ccb.println("      i++;");
         ccb.println("      tok = tok->next();");
         ccb.println("    }");
-        ccb.println("    if (tok != nullptr) jj_add_error_token(kind, i);");
+        ccb.println("    if (tok != nullptr) jj_add_error_token(kind, i, loc);");
         if (Options.getDebugLookahead()) {
           ccb.println("  } else {");
           ccb.println("    trace_scan(jj_scanpos, kind);");
@@ -543,14 +563,14 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
         ccb.println("  trace_scan(jj_scanpos, kind);");
       }
       ccb.println("  if (jj_scanpos->kind() != kind) {");
-      ccb.println("    return true;");
+      ccb.println("    return LA_SCAN_TOKEN_FAILURE;");
       ccb.println("  }");
       // codeGen.genCodeLine(" if (jj_la == 0 && jj_scanpos == jj_lastpos)
       // throw jj_ls;");
       ccb.println("  if (jj_la == 0 && jj_scanpos == jj_lastpos) {");
-      ccb.println("    return jj_done = true;");
+      ccb.println("    return jj_done = LA_SCAN_TOKEN_FAILURE;");
       ccb.println("  }");
-      ccb.println("  return false;");
+      ccb.println("  return LA_SCAN_TOKEN_SUCCESS;");
       ccb.println("}");
       ccb.println();
     }
@@ -572,7 +592,7 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
       ccb.println("  jj_gen++;");
     }
     if (Options.getDebugParser()) {
-      ccb.println("  trace_token(token, \" (in getNextToken())\");");
+      ccb.println("  trace_consumed(token, \" (in getNextToken())\");");
     }
     ccb.println("  return token;");
     ccb.println("}");
@@ -611,9 +631,12 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
     ccb.switchToIncludeFile();
     ccb.println("private:");
     if (Options.getErrorReporting()) {
-      ccb.println("  int** jj_expentries;");
-      ccb.println("  int*  jj_expentry;");
-      ccb.println("  int jj_kind = -1;");
+      ccb.println("  int**   jj_expentries;");
+      ccb.println("  char*** jj_expentries_loc;");
+      ccb.println("  int     jj_kind = -1;");
+      ccb.println("  int*    jj_expentry;");
+      ccb.println("  char**  jj_expentry_loc;");
+      ccb.println("  int     MAX_NB_POS = 100;");
       ccb.println();
       if (context.globals().jj2index != 0) {
         ccb.switchToStaticsFile();
@@ -624,7 +647,7 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
 
         /* jj_add_error_token(int kind, int pos) */
         ccb.generateMethodDefHeader(
-            "void", context.globals().cu_name, "jj_add_error_token(int kind, int pos)");
+            "void", context.globals().cu_name, "jj_add_error_token(int kind, int pos, char* loc)");
         ccb.println(" {");
         // For now we don't support full ERROR_REPORTING in the C++ version.
         /* java, to be translated
@@ -847,8 +870,8 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
       ccb.println("  if (trace_enabled()) {");
       ccb.println("    for (int no = 0; no < trace_indent; no++) { JJLOG << JJSPACE; }");
       ccb.println(
-          "    JJLOG << JJWIDE(Call:) << JJSPACE << JJSPACE << JJSPACE << s"
-              + "          << JJSPACE << JJWIDE((pa)) << std::endl;");
+          "    JJLOG << JJWIDE(Call:) << JJSPACE << JJSPACE << JJSPACE << trace_indent"
+              + "          << JJWIDE(:) << JJSPACE << s << JJSPACE << JJWIDE((pa)) << std::endl;");
       ccb.println("  }");
       ccb.println("  trace_indent += 2;");
       ccb.println("}");
@@ -861,15 +884,17 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
       ccb.println("  if (trace_enabled()) {");
       ccb.println("    for (int no = 0; no < trace_indent; no++) { JJLOG << JJSPACE; }");
       ccb.println(
-          "    JJLOG << JJWIDE(Return:) << JJSPACE << s"
-              + "          << JJSPACE << JJWIDE((pa)) << std::endl;");
+          "    JJLOG << JJWIDE(Return:) << JJSPACE << trace_indent"
+              + "          << JJWIDE(:) << JJSPACE << s << JJSPACE << JJWIDE((pa)) << std::endl;");
       ccb.println("  }");
       ccb.println("}");
       ccb.println();
 
       ccb.switchToIncludeFile();
       ccb.generateMethodDefHeader(
-          "void", context.globals().cu_name, "trace_token(const Token* token, const char* where)");
+          "void",
+          context.globals().cu_name,
+          "trace_consumed(const Token* token, const char* where)");
       ccb.println(" {");
       ccb.println("  if (trace_enabled()) {");
       ccb.println("    for (int no = 0; no < trace_indent; no++) { JJLOG << JJSPACE; }");
@@ -877,10 +902,31 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
       ccb.println("    JJLOG << JJWIDE(Consumed token:) << JJSPACE << disp_token(token);");
       if (Options.getKeepLineColumn()) {
         ccb.println(
-            "    JJLOG << JJCOMMA << JJSPACE << JJWIDE(at) << JJSPACE << "
+            "    JJLOG << JJCOMMA << JJSPACE << JJWIDE(@) << JJSPACE << "
                 + "token->beginLine() << JJWIDE(:) << token->beginColumn()");
       }
       ccb.println("    JJLOG << where << JJSPACE << JJWIDE((pa)) << std::endl;");
+      ccb.println("  }");
+      ccb.println("}");
+      ccb.println();
+
+      ccb.switchToIncludeFile();
+      ccb.generateMethodDefHeader(
+          "void",
+          context.globals().cu_name,
+          "trace_expected(const int k1, const Token* t2, const char* loc)");
+      ccb.println(" {");
+      ccb.println("  if (trace_enabled()) {");
+      ccb.println("    for (int no = 0; no < trace_indent; no++) { JJLOG << JJSPACE; }");
+
+      ccb.println("    JJLOG << JJWIDE(Expected token: <) << k1;");
+      ccb.println("    if (k1 >= 0) JJLOG << JJSPACE << JJWIDE(/) << JJSPACE << tokenImage[k1];");
+      ccb.println("    JJLOG << JJWIDE(>);");
+      if (Options.getKeepLineColumn()) {
+        ccb.println("    JJLOG << JJCOMMA << JJSPACE << JJWIDE(@) << JJSPACE << loc << JJCOMMA");
+      }
+      ccb.println("    JJLOG << JJSPACE << JJWIDE(not matched by consumed token) << JJSPACE");
+      ccb.println("          << disp_token(t2) << JJSPACE << JJWIDE((pa)) << std::endl;");
       ccb.println("  }");
       ccb.println("}");
       ccb.println();
@@ -922,8 +968,8 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
       ccb.println("  if (trace_la_enabled()) {");
       ccb.println("    for (int no = 0; no < trace_indent; no++) { JJLOG << JJSPACE; }");
       ccb.println(
-          "    JJLOG << JJWIDE(Call:) << JJSPACE << JJSPACE << JJSPACE << s"
-              + "          << JJSPACE << JJWIDE((la)) << std::endl;");
+          "    JJLOG << JJWIDE(Call:) << JJSPACE << JJSPACE << JJSPACE << trace_indent"
+              + "          << JJWIDE(:) << JJSPACE << s << JJSPACE << JJWIDE((la)) << std::endl;");
       ccb.println("  }");
       ccb.println("  trace_indent += 2;");
       ccb.println("}");
@@ -937,8 +983,8 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
       ccb.println("  if (trace_la_enabled()) {");
       ccb.println("    for (int no = 0; no < trace_indent; no++) { JJLOG << JJSPACE; }");
       ccb.println(
-          "    JJLOG << JJWIDE(Return:) << JJSPACE << s"
-              + "          << JJSPACE << JJWIDE((la)) << std::endl;");
+          "    JJLOG << JJWIDE(Return:) << JJSPACE << trace_indent"
+              + "          << JJWIDE(:) << JJSPACE << s << JJSPACE << JJWIDE((la)) << std::endl;");
       ccb.println("  }");
       ccb.println("}");
       ccb.println();
@@ -949,7 +995,8 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
       ccb.println(" {");
       ccb.println("  if (trace_la_enabled()) {");
       ccb.println("    for (int no = 0; no < trace_indent; no++) { JJLOG << JJSPACE; }");
-      ccb.println("    JJLOG << JJWIDE(Visited token:) << JJSPACE << disp_token(t1);");
+      ccb.println(
+          "    JJLOG << JJWIDE(Visited token: (la=) << jj_la << JJWIDE():) << JJSPACE << disp_token(t1);");
       if (Options.getKeepLineColumn()) {
         ccb.println(
             "    JJLOG << JJCOMMA << JJSPACE << JJWIDE(at) << JJSPACE << t1->beginLine() << JJWIDE(:) << t1->beginColumn();");
@@ -1050,7 +1097,7 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
     }
 
     ccb.println("private:");
-    ccb.println("  bool jj_done;");
+    ccb.println("  bool jj_done; // true when the last level lookahead succeeds");
 
     ccb.println();
     ccb.println("};");
@@ -1271,9 +1318,8 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
           // So break the main loop and treat this case as the default last action.
           break;
         } else {
-          // This case is when there is only semantic lookahead
-          //  (without any preceding syntactic lookahead).
-          // In this case, an "if" statement is generated.
+          // This case is when there is only semantic lookahead (without any preceding syntactic
+          //  lookahead). In this case, an "if" statement is generated.
           switch (state) {
             case NOOPENSTM:
               retval += "\n" + "if (";
@@ -1283,11 +1329,16 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
               retval += "\u0002\n" + "} else if (";
               break;
             case OPENSWITCH:
-              retval += "\n" + "default:" + "\u0001";
+              retval += "\n" + "default: /*semla*/" + "\u0001";
               if (Options.getErrorReporting()) {
-                retval += "\njj_la1[" + context.globals().maskindex + "] = jj_gen;";
-                retval += "\njj_exp_Line = " + la.getLine() + ";";
-                retval += "\njj_exp_Column = " + la.getColumn() + ";";
+                retval += "\njj_la1[" + context.globals().maskindex + "]     = jj_gen;";
+                retval +=
+                    "\njj_la1_loc["
+                        + context.globals().maskindex
+                        + "] = "
+                        + exp.getLine()
+                        + ":"
+                        + exp.getColumn();
                 context.globals().maskindex++;
                 context.globals().maskVals.add(tokenMask);
               }
@@ -1334,7 +1385,7 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
                 retval += "jj_nt->kind()";
                 retval += ") {\u0001";
               } else {
-                retval += "(jj_ntk == -1) ? jj_ntk_f() : jj_ntk) {\u0001";
+                retval += "(jj_ntk == -1) ? jj_ntk_f() : jj_ntk) {\u0001\u0001";
               }
               for (int i = 0; i < context.globals().tokenCount; i++) {
                 casedValues[i] = false;
@@ -1367,7 +1418,7 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
           }
           retval += "{";
           retval += actions[index];
-          retval += "\nbreak;\u0002\n}";
+          retval += "\nbreak;";
           state = OPENSWITCH;
         }
 
@@ -1390,11 +1441,17 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
             retval += "\u0002\n" + "} else if (";
             break;
           case OPENSWITCH:
-            retval += "\n" + "default:" + "\u0001";
+            retval += "\n" + "default: /*jj2*/" + "\u0001";
             if (Options.getErrorReporting()) {
-              retval += "\njj_la1[" + context.globals().maskindex + "] = jj_gen;";
-              retval += "\njj_exp_Line = " + la.getLine() + ";";
-              retval += "\njj_exp_Column = " + la.getColumn() + ";";
+              retval += "\njj_la1[" + context.globals().maskindex + "]     = jj_gen;";
+              retval +=
+                  "\njj_la1_loc["
+                      + context.globals().maskindex
+                      + "] = \""
+                      + exp.getLine()
+                      + ":"
+                      + exp.getColumn()
+                      + "\";";
               context.globals().maskindex++;
               context.globals().maskVals.add(tokenMask);
             }
@@ -1413,7 +1470,12 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
           amount = Integer.toString(la.getAmount());
         }
 
-        retval += "jj_2" + internalNames.get(la.getLaExpansion()) + "(" + amount + ")";
+        retval +=
+            "jj_2"
+                + internalNames.get(la.getLaExpansion())
+                + "("
+                + la.getAmount()
+                + ") == LA_PHASE_2_SUCCESS";
         if (la.getActionTokens().size() != 0) {
           // In addition, there is also a semantic lookahead.
           // So concatenate the semantic check with the syntactic one.
@@ -1438,22 +1500,41 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
 
     switch (state) {
       case NOOPENSTM:
-        retval += actions[index];
+        if (Options.getErrorReporting()) {
+          retval += actions[index].replace("*loc*", "n/a");
+        } else {
+          retval += actions[index];
+        }
         break;
       case OPENIF:
-        retval += "\u0002\n" + "} else {\u0001" + actions[index];
+        retval += "\u0002\n" + "} else {\u0001";
+        if (Options.getErrorReporting()) {
+          retval += actions[index].replace("*loc*", "n/a");
+
+        } else {
+          retval += actions[index];
+        }
         break;
       case OPENSWITCH:
-        retval += "\n" + "default:" + "\u0001";
+        retval += "\u0002\n" + "default: /*last*/" + "\u0001";
         if (Options.getErrorReporting()) {
-          retval += "\njj_la1[" + context.globals().maskindex + "] = jj_gen;";
-          retval += "\njj_exp_Line = " + exp.getLine() + ";";
-          retval += "\njj_exp_Column = " + exp.getColumn() + ";";
+          retval += "\njj_la1[" + context.globals().maskindex + "]     = jj_gen;";
+          retval +=
+              "\njj_la1_loc["
+                  + context.globals().maskindex
+                  + "] = \""
+                  + exp.getLine()
+                  + ":"
+                  + exp.getColumn()
+                  + "\";";
+          retval += actions[index].replace("*loc*", exp.getLine() + ":" + exp.getColumn());
           context.globals().maskVals.add(tokenMask);
           context.globals().maskindex++;
+        } else {
+          retval += actions[index];
         }
-        retval += actions[index];
         retval += "\u0002";
+        break;
     }
     for (int i = 0; i < indentAmt; i++) {
       retval += "\u0002\n}";
@@ -1584,22 +1665,23 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
     genStackCheck(voidReturn);
 
     indentamt = 2;
+    String fmtProd = "";
     if (Options.getDebugParser()) {
+      fmtProd = fmtProd(p);
       ccb.println();
       ccb.println(
           "  JJEnter<std::function<void()>> jjenter([this]() { trace_call  (\""
-              + ccb.escapeToUnicode(p.getLhs())
+              + fmtProd
               + "\"); });");
       ccb.println(
           "  JJExit <std::function<void()>> jjexit ([this]() { trace_return(\""
-              + ccb.escapeToUnicode(p.getLhs())
+              + fmtProd
               + "\"); });");
       ccb.print("  try {");
       indentamt += 2;
     }
 
-    if (!Options.getIgnoreActions()
-        && (p.getDeclarationTokens().size() != 0)) {
+    if (!Options.getIgnoreActions() && (p.getDeclarationTokens().size() != 0)) {
       ccb.println();
       ccb.printTokenSetup(p.getDeclarationTokens().get(0));
       for (final Iterator<Token> it = p.getDeclarationTokens().iterator(); it.hasNext(); ) {
@@ -1651,17 +1733,20 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
         retval += ccb.getTrailingComments(t);
         retval += " = ";
       }
-      final String tail = e_nrw.rhsToken == null ? ");" : ")->" + e_nrw.rhsToken.image + ";";
       if (e_nrw.label.equals("")) {
         final Object label = context.globals().names_of_tokens.get(Integer.valueOf(e_nrw.ordinal));
         if (label != null) {
-          retval += "jj_consume_token(" + addTokenNamespace((String) label + tail);
+          retval += "jj_consume_token(" + addTokenNamespace((String) label);
         } else {
-          retval += "jj_consume_token(" + e_nrw.ordinal + tail;
+          retval += "jj_consume_token(" + e_nrw.ordinal;
         }
       } else {
-        retval += "jj_consume_token(" + addTokenNamespace(e_nrw.label + tail);
+        retval += "jj_consume_token(" + addTokenNamespace(e_nrw.label);
       }
+      if (Options.getErrorReporting()) {
+        retval += ", \"" + e.getLine() + ":" + e.getColumn() + "\"";
+      }
+      retval += e_nrw.rhsToken == null ? ");" : ")->" + e_nrw.rhsToken.image + ";";
 
       if (Options.getStopOnFirstError()) {
         retval += "\n    { if (hasError) { return __ERROR_RET__; } }\n";
@@ -1692,37 +1777,44 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
       if (Options.getStopOnFirstError()) {
         retval += "\n    { if (hasError) { return __ERROR_RET__; } }\n";
       }
+
     } else if (e instanceof Action) {
       final Action e_nrw = (Action) e;
-      retval += "\u0003\n";
-      if (!Options.getIgnoreActions()
-          && (e_nrw.getActionTokens().size() != 0)) {
+      //      retval += "\u0003\n";
+      if (!Options.getIgnoreActions() && (e_nrw.getActionTokens().size() != 0)) {
+        retval += "\n "; // half indent for distinguishing user actions from generated code
+        // this formatting is ok for an action of a single line, not of multiple lines
+        String code = "";
         ccb.printTokenSetup(e_nrw.getActionTokens().get(0));
         for (final Iterator<Token> it = e_nrw.getActionTokens().iterator(); it.hasNext(); ) {
           t = it.next();
-          retval += CodeBuilder.toString(t);
+          code += CodeBuilder.toString(t);
         }
-        retval += ccb.getTrailingComments(t);
+        code += ccb.getTrailingComments(t);
+        retval += code.trim();
       }
-      retval += "\u0004";
+      //      retval += "\u0004";
+
     } else if (e instanceof Choice) {
       final Choice e_nrw = (Choice) e;
-      conds = new Lookahead[e_nrw.getChoices().size()];
-      actions = new String[e_nrw.getChoices().size() + 1];
-      actions[e_nrw.getChoices().size()] =
+      final int nbChoices = e_nrw.getChoices().size();
+      conds = new Lookahead[nbChoices];
+      actions = new String[nbChoices + 1];
+      for (int i = 0; i < e_nrw.getChoices().size(); i++) {
+        final Sequence nestedSeq = (Sequence) e_nrw.getChoices().get(i);
+        actions[i] = phase1ExpansionGen(nestedSeq);
+        conds[i] = (Lookahead) nestedSeq.units.get(0);
+      }
+      actions[nbChoices] =
           "\n"
               + "jj_consume_token(-1);\n"
               + "errorHandler->parseError(token, getToken(1), __FUNCTION__), hasError = true;"
               + (Options.getStopOnFirstError() ? "\nreturn __ERROR_RET__;" : "");
-      // In previous line, the "throw" never throws an exception since the evaluation of
-      //  jj_consume_token(-1) causes ParseException to be thrown first.
-      Sequence nestedSeq;
-      for (int i = 0; i < e_nrw.getChoices().size(); i++) {
-        nestedSeq = (Sequence) e_nrw.getChoices().get(i);
-        actions[i] = phase1ExpansionGen(nestedSeq);
-        conds[i] = (Lookahead) nestedSeq.units.get(0);
-      }
+      // In previous line, the "errorHandler->parseError" never "throws" an exception since the
+      // evaluation of
+      //  jj_consume_token(-1) causes a parseError to be "thrown" first.
       retval = buildLookaheadChecker(conds, actions, e);
+
     } else if (e instanceof Sequence) {
       final Sequence e_nrw = (Sequence) e;
       // We skip the first element in the following iteration since it is the Lookahead object.
@@ -1745,6 +1837,7 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
           retval += "\u0002\n}";
         }
       }
+
     } else if (e instanceof OneOrMore) {
       final OneOrMore e_nrw = (OneOrMore) e;
       final Expansion nested_e = e_nrw.getExpansion();
@@ -1763,12 +1856,12 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
       conds = new Lookahead[1];
       conds[0] = la;
       actions = new String[2];
-      actions[0] = "\n;";
+      actions[0] = "";
       actions[1] = "\ngoto end_label_" + labelIndex + ";";
-
       retval += buildLookaheadChecker(conds, actions, e);
       retval += "\u0002\n" + "}";
       retval += "\nend_label_" + labelIndex + ": ;";
+
     } else if (e instanceof ZeroOrMore) {
       final ZeroOrMore e_nrw = (ZeroOrMore) e;
       final Expansion nested_e = e_nrw.getExpansion();
@@ -1786,12 +1879,13 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
       conds = new Lookahead[1];
       conds[0] = la;
       actions = new String[2];
-      actions[0] = "\n;";
+      actions[0] = "";
       actions[1] = "\ngoto end_label_" + labelIndex + ";";
       retval += buildLookaheadChecker(conds, actions, e);
       retval += phase1ExpansionGen(nested_e);
       retval += "\u0002\n" + "}";
       retval += "\nend_label_" + labelIndex + ": ;";
+
     } else if (e instanceof ZeroOrOne) {
       final ZeroOrOne e_nrw = (ZeroOrOne) e;
       final Expansion nested_e = e_nrw.getExpansion();
@@ -1807,8 +1901,9 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
       conds[0] = la;
       actions = new String[2];
       actions[0] = phase1ExpansionGen(nested_e);
-      actions[1] = "\n;";
+      actions[1] = "";
       retval += buildLookaheadChecker(conds, actions, e);
+
     } else if (e instanceof TryBlock) {
       final TryBlock e_nrw = (TryBlock) e;
       final Expansion nested_e = e_nrw.exp;
@@ -1847,7 +1942,6 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
       }
       if (e_nrw.finallyblk != null) {
         retval += " finally {\u0003\n";
-
         if (e_nrw.finallyblk.size() != 0) {
           ccb.printTokenSetup(e_nrw.finallyblk.get(0));
           for (final Iterator<Token> it = e_nrw.finallyblk.iterator(); it.hasNext(); ) {
@@ -1859,6 +1953,7 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
         retval += "\u0004\n" + "}";
       }
     }
+
     return retval;
   }
 
@@ -1866,18 +1961,57 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
     final Expansion e = la.getLaExpansion();
     ccb.println("  inline bool ", "jj_2" + internalNames.get(e) + "(int xla) {");
     ccb.println("    jj_la = xla; jj_lastpos = jj_scanpos = token;");
+    ccb.println("    jj_done = false;");
 
     String ret_suffix = "";
     if (Options.getDepthLimit() > 0) {
       ret_suffix = " && !jj_depth_error";
     }
 
-    ccb.println("    jj_done = false;");
-    ccb.println("    return (!jj_3" + internalNames.get(e) + "() || jj_done)" + ret_suffix + ";");
-    if (Options.getErrorReporting()) {
+    if (Options.getDebugLookahead()) {
+      // parent null for a top level lookahead expansion,
+      //  need to go through the lookahead itself (with mod in grammar)
+      Object par = e.parent != null ? e.parent : la.parent;
+      while (par != null && !(par instanceof NormalProduction) && (par instanceof Expansion)) {
+        par = ((Expansion) par).parent;
+      }
+      final NormalProduction prod = ((NormalProduction) par);
       ccb.println(
-          "    jj_save(" + (Integer.parseInt(internalNames.get(e).substring(1)) - 1) + ", xla);");
+          "      trace_la_call(\"Entering LOOKAHEAD (\" + xla + \") " + fmtAt(e, prod) + "\");");
+      ccb.println("      final boolean rc = jj_3" + internalNames.get(e) + "()" + ret_suffix + ";");
+      ccb.println("    if (jj_done) {");
+      ccb.println(
+          "      trace_la_return(\"Caught SUCCESSFUL LOOKAHEAD (\" + xla + \"/\" + jj_la + \") "
+              + fmtAt(e, prod)
+              + "\");");
+      if (Options.getErrorReporting()) {
+        ccb.println(
+            "    jj_save(" + (Integer.parseInt(internalNames.get(e).substring(1)) - 1) + ", xla);");
+      }
+      ccb.println("      return LA_PHASE_2_SUCCESS;");
+      ccb.println("    } else {");
+      ccb.println(
+          "      trace_la_return(\"Exiting \" + (rc ? \"FAILED\" : \"SUCCESSFUL\") + \""
+              + " LOOKAHEAD (\" + xla + \"/\" + jj_la + \") "
+              + fmtAt(e, prod)
+              + "\");");
+      if (Options.getErrorReporting()) {
+        ccb.println(
+            "    jj_save(" + (Integer.parseInt(internalNames.get(e).substring(1)) - 1) + ", xla);");
+      }
+      ccb.println("      return (!rc);");
+      ccb.println("    }");
+
+    } else {
+      // no DebugLookahead
+      ccb.println("    return (!jj_3" + internalNames.get(e) + "() || jj_done)" + ret_suffix + ";");
+      if (Options.getErrorReporting()) {
+        ccb.println(
+            "    jj_save(" + (Integer.parseInt(internalNames.get(e).substring(1)) - 1) + ", xla);");
+      }
+      ccb.println("    return LA_PHASE_2_FAILURE;");
     }
+
     ccb.println("  }");
     ccb.println();
     final Phase3Data p3d = new Phase3Data(e, la.getAmount());
@@ -1889,30 +2023,34 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
 
   private Expansion jj3_expansion;
 
-  private String genReturn(final boolean value) {
-    final String retval = value ? "true" : "false";
+  protected static final String EOL = System.getProperty("line.separator", "\n");
+
+  private String genReturn(final boolean value, final int amt, final String addInd) {
+    String ind = "";
+    for (int i = 0; i < amt; i++) {
+      ind += "  ";
+    }
+    final String rc = value ? "LA_PHASE_3_FAILURE" : "LA_PHASE_3_SUCCESS";
     if (Options.getDebugLookahead() && (jj3_expansion != null)) {
-      String ind = "";
-      for (int i = 0; i < indentamt; i++) {
-        ind += " ";
-      }
-      String str = "";
-      String tracecode =
-          "trace_la_return(\""
-              + ccb.escapeToUnicode(((NormalProduction) jj3_expansion.parent).getLhs())
-              + "(LOOKAHEAD "
-              + (value ? "FAILED" : "SUCCEEDED")
-              + ")\");";
+      final String eolIndent = EOL + (value ? "      " : "    ") + ind;
+      final StringBuilder sb = new StringBuilder(160);
+      sb.append(ind);
       if (Options.getErrorReporting()) {
-        tracecode = "if (!jj_rescan) " + tracecode;
+        sb.append("if (!jj_rescan) ");
       }
-      str += "{\n  " + ind;
-      str += tracecode + "\n  " + ind;
-      str += "return " + retval + ";\n" + ind;
-      str += "}";
-      return str;
+      sb.append("trace_la_return(\"");
+      sb.append(fmtProd((NormalProduction) jj3_expansion.parent));
+      sb.append(": ");
+      sb.append("look ahead (\" + jj_la + \") ");
+      sb.append(value ? "FAILED" : "SUCCESSFUL");
+      sb.append(")\");");
+      if (Options.getErrorReporting()) {
+        sb.append(eolIndent);
+      }
+      sb.append(addInd).append("return ").append(rc).append(";");
+      return sb.toString();
     } else {
-      return "return " + retval + ";";
+      return ind + "return " + rc + ";";
     }
   }
 
@@ -1949,13 +2087,17 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
         if (re.label.equals("")) {
           final Object label = context.globals().names_of_tokens.get(Integer.valueOf(re.ordinal));
           if (label != null) {
-            jj_scan_token += "(" + addTokenNamespace((String) label) + ")";
+            jj_scan_token += "(" + addTokenNamespace((String) label);
           } else {
-            jj_scan_token += "(" + re.ordinal + ")";
+            jj_scan_token += "(" + re.ordinal;
           }
         } else {
-          jj_scan_token += "(" + addTokenNamespace(re.label) + ")";
+          jj_scan_token += "(" + addTokenNamespace(re.label);
         }
+        if (Options.getErrorReporting()) {
+          jj_scan_token += ", \"" + e.getLine() + ":" + e.getColumn() + "\")";
+        }
+        jj_scan_token += ")";
         internalNames.put(e, jj_scan_token);
         return;
       }
@@ -1991,6 +2133,7 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
     final Expansion e = inf.exp;
     if (e instanceof RegularExpression) {
       // nothing to here
+
     } else if (e instanceof NonTerminal) {
       // All expansions of non-terminals have the "name" fields set.
       // So there's no need to check it below for "e_nrw" and "ntexp".
@@ -2002,11 +2145,13 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
       } else {
         generate3R(ntprod.getExpansion(), inf);
       }
+
     } else if (e instanceof Choice) {
       final Choice e_nrw = (Choice) e;
       for (final Expansion element : e_nrw.getChoices()) {
         generate3R(element, inf);
       }
+
     } else if (e instanceof Sequence) {
       final Sequence e_nrw = (Sequence) e;
       // We skip the first element in the following iteration since it is the Lookahead object.
@@ -2019,15 +2164,19 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
           break;
         }
       }
+
     } else if (e instanceof TryBlock) {
       final TryBlock e_nrw = (TryBlock) e;
       setupPhase3Builds(new Phase3Data(e_nrw.exp, inf.count));
+
     } else if (e instanceof OneOrMore) {
       final OneOrMore e_nrw = (OneOrMore) e;
       generate3R(e_nrw.getExpansion(), inf);
+
     } else if (e instanceof ZeroOrMore) {
       final ZeroOrMore e_nrw = (ZeroOrMore) e;
       generate3R(e_nrw.getExpansion(), inf);
+
     } else if (e instanceof ZeroOrOne) {
       final ZeroOrOne e_nrw = (ZeroOrOne) e;
       generate3R(e_nrw.getExpansion(), inf);
@@ -2062,20 +2211,34 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
     return getTokenType() + "*";
   }
 
+  private static String fmtAt(final Expansion e, final NormalProduction prod) {
+    return "(at " + e.getLine() + ":" + e.getColumn() + " in " + fmtProd(prod) + ")";
+  }
+
+  private static String fmtProd(final NormalProduction p) {
+    return p == null
+        ? "?-?"
+        : (JavaCCGlobals.addUnicodeEscapes(p.getLhs()) + "-" + p.getLine()
+        //        + ":" + p.getColumn()
+        );
+  }
+
   private String genjj_3Call(final Expansion e) {
     if (internalNames.containsKey(e) && internalNames.get(e).startsWith("jj_scan_token")) {
-      return internalNames.get(e);
+      return internalNames.get(e) + " == LA_SCAN_TOKEN_FAILURE";
     } else {
-      return "jj_3" + internalNames.get(e) + "()";
+      return "jj_3" + internalNames.get(e) + "() == LA_PHASE_3_FAILURE";
     }
   }
 
-  private void buildPhase3Routine(final Phase3Data inf, final boolean recursive_call) {
+  private void buildPhase3Routine(
+      final Phase3Data inf, final boolean recursive_call, final String indent) {
     final Expansion e = inf.exp;
-    Token t = null;
     if (internalNames.containsKey(e) && internalNames.get(e).startsWith("jj_scan_token")) {
       return;
     }
+    Token t = null;
+    String ind = indent;
 
     if (!recursive_call) {
       if (Options.getDebugLookahead()) {
@@ -2084,7 +2247,7 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
         ccb.print("  inline bool ");
       }
       ccb.println("jj_3" + internalNames.get(e) + "() {");
-      ccb.println("    if (jj_done) return true;");
+      ccb.println("    if (jj_done) return LA_SCAN_TOKEN_SUCCESS;");
       if (Options.getDepthLimit() > 0) {
         ccb.println("#define __ERROR_RET__ true");
       }
@@ -2097,37 +2260,39 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
         }
         ccb.println(
             "trace_la_call(\""
-                + ccb.escapeToUnicode(((NormalProduction) e.parent).getLhs())
-                + "(LOOKING AHEAD...)\");");
+                + fmtProd((NormalProduction) e.parent)
+                + ": looking ahead (\" + jj_la + \")...\");");
+        ccb.println("    try {");
+        ind += "  ";
         jj3_expansion = e;
       } else {
         jj3_expansion = null;
       }
     }
+
     if (e instanceof RegularExpression) {
       final RegularExpression e_nrw = (RegularExpression) e;
-      if (e_nrw.label.equals("")) {
-        final Object label = context.globals().names_of_tokens.get(Integer.valueOf(e_nrw.ordinal));
-        if (label != null) {
-          indentamt += 2;
-          ccb.println(
-              "    if (jj_scan_token("
-                  + addTokenNamespace((String) label)
-                  + ")) "
-                  + genReturn(true));
-          indentamt -= 2;
-        } else {
-          indentamt += 2;
-          ccb.println("    if (jj_scan_token(" + e_nrw.ordinal + ")) " + genReturn(true));
-          indentamt -= 2;
-        }
-      } else {
-        indentamt += 2;
-        ccb.println(
-            "    if (jj_scan_token(" + addTokenNamespace(e_nrw.label) + ")) " + genReturn(true));
-        indentamt -= 2;
+      indentamt += 2;
+      // RStringLiteral
+      Object kindStr = e_nrw.label;
+      if (kindStr.equals("")) {
+        // RStringLiteral
+        kindStr = context.globals().names_of_tokens.get(Integer.valueOf(e_nrw.ordinal));
       }
-      // codeGen.genCodeLine(" if (jj_la == 0 && jj_scanpos == jj_lastpos) " + genReturn(false));
+      if (kindStr == null) {
+        // RJustName
+        kindStr = e_nrw.ordinal;
+      } else {
+        kindStr = addTokenNamespace((String) kindStr);
+      }
+      ccb.print("    if (jj_scan_token(" + kindStr);
+      if (Options.getErrorReporting()) {
+        ccb.print(", \"" + e.getLine() + ":" + e.getColumn() + "\"");
+      }
+      ccb.println(") == LA_SCAN_TOKEN_FAILURE) {");
+      ccb.println(ind + "      " + genReturn(true, 0, ind));
+      indentamt -= 2;
+
     } else if (e instanceof NonTerminal) {
       // All expansions of non-terminals have the "name" fields set.
       // So there's no need to check it below for "e_nrw" and "ntexp".
@@ -2135,23 +2300,27 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
       final NonTerminal e_nrw = (NonTerminal) e;
       final NormalProduction ntprod = context.globals().production_table.get(e_nrw.getName());
       if (ntprod instanceof CodeProduction) {
-        ccb.println(
-            "    if (true) { jj_la = 0; jj_scanpos = jj_lastpos; " + genReturn(false) + "}");
+        ccb.println(ind + "    if (true) {");
+        ccb.println(ind + "      jj_la = 0;");
+        ccb.println(ind + "      jj_scanpos = jj_lastpos;");
+        ccb.println(ind + "      " + genReturn(false, 0, ind));
+        ccb.println(ind + "    }");
       } else {
         final Expansion ntexp = ntprod.getExpansion();
-        // codeGen.genCodeLine(" if (jj_3" + ntexp.internal_name + "()) " + genReturn(true));
-        ccb.println("    if (" + genjj_3Call(ntexp) + ") " + genReturn(true));
-        // codeGen.genCodeLine(" if (jj_la == 0 && jj_scanpos == jj_lastpos) " + genReturn(false));
+        ccb.println(ind + "    if (" + genjj_3Call(ntexp) + ") {");
+        ccb.println(ind + "      " + genReturn(true, 0, ind));
+        ccb.println(ind + "    }");
       }
+
     } else if (e instanceof Choice) {
       Sequence nested_seq;
       final Choice e_nrw = (Choice) e;
       if (e_nrw.getChoices().size() != 1) {
         if (!xsp_declared) {
           xsp_declared = true;
-          ccb.println("    Token* xsp;");
+          ccb.println(ind + "    Token* xsp;");
         }
-        ccb.println("    xsp = jj_scanpos;");
+        ccb.println(ind + "    xsp = jj_scanpos;");
       }
       for (int i = 0; i < e_nrw.getChoices().size(); i++) {
         nested_seq = (Sequence) e_nrw.getChoices().get(i);
@@ -2159,129 +2328,106 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
         if (la.getActionTokens().size() != 0) {
           // We have semantic lookahead that must be evaluated.
           context.globals().lookaheadNeeded = true;
-          ccb.println("    jj_lookingAhead = true;");
-          ccb.print("    jj_semLA = ");
+          ccb.println(ind + "    jj_lookingAhead = true;");
+          ccb.print(ind + "    jj_semLA = ");
           ccb.printTokenSetup(la.getActionTokens().get(0));
           for (final Iterator<Token> it = la.getActionTokens().iterator(); it.hasNext(); ) {
             t = it.next();
             ccb.printToken(t);
           }
           ccb.printTrailingComments(t);
-          ccb.println(";");
-          ccb.println("    jj_lookingAhead = false;");
+          ccb.println(ind + ";");
+          ccb.println(ind + "    jj_lookingAhead = false;");
         }
         for (int k = 0; k < indentamt; k++) {
           ccb.print(' ');
         }
-        ccb.print("  if (");
+        ccb.print(ind + "  if (");
         if (la.getActionTokens().size() != 0) {
           ccb.print("!jj_semLA || ");
         }
         if (i != (e_nrw.getChoices().size() - 1)) {
-          // codeGen.genCodeLine("jj_3" + nested_seq.internal_name + "())
           // {");
-          // codeGen.println(genjj_3Call(nested_seq) + ") {");
           ccb.println(genjj_3Call(nested_seq) + ") {");
           indentamt += 2;
-          ccb.println("      jj_scanpos = xsp;");
+          ccb.println(ind + "      jj_scanpos = xsp;");
         } else {
-          // codeGen.genCodeLine("jj_3" + nested_seq.internal_name + "())
-          // " + genReturn(true));
-          ccb.print(genjj_3Call(nested_seq) + ") ");
+          ccb.print(genjj_3Call(nested_seq) + ") {");
           indentamt += 2;
-          ccb.println(genReturn(true));
+          ccb.println(genReturn(true, i, ind));
           indentamt -= 2;
-          // codeGen.genCodeLine(" if (jj_la == 0 && jj_scanpos ==
-          // jj_lastpos) " + genReturn(false));
         }
+        ccb.println(ind + "  }");
       }
       for (int i = 1; i < e_nrw.getChoices().size(); i++) {
-        // codeGen.genCodeLine(" } else if (jj_la == 0 && jj_scanpos ==
-        // jj_lastpos) " + genReturn(false));
         indentamt -= 2;
         for (int k = 0; k < indentamt; k++) {
           ccb.print(' ');
         }
-        ccb.println("  }");
+        ccb.println(ind + "  }");
       }
+
     } else if (e instanceof Sequence) {
       final Sequence e_nrw = (Sequence) e;
-      // We skip the first element in the following iteration since it is the
-      // Lookahead object.
+      // We skip the first element in the following iteration since it is the Lookahead object.
       int cnt = inf.count;
       for (int i = 1; i < e_nrw.units.size(); i++) {
         final Expansion eseq = e_nrw.units.get(i);
-        buildPhase3Routine(new Phase3Data(eseq, cnt), true);
-
-        // System.out.println("minimumSize: line: " + eseq.line + ", column: " +
-        // eseq.column + ": " +
-        // minimumSize(eseq));//Test Code
-
+        buildPhase3Routine(new Phase3Data(eseq, cnt), true, ind);
         cnt -= minimumSize(eseq);
         if (cnt <= 0) {
           break;
         }
       }
+
     } else if (e instanceof TryBlock) {
       final TryBlock e_nrw = (TryBlock) e;
-      buildPhase3Routine(new Phase3Data(e_nrw.exp, inf.count), true);
+      buildPhase3Routine(new Phase3Data(e_nrw.exp, inf.count), true, ind);
+
     } else if (e instanceof OneOrMore) {
       if (!xsp_declared) {
         xsp_declared = true;
-        ccb.println("    Token* xsp;");
+        ccb.println(ind + "    Token* xsp;");
       }
       final OneOrMore e_nrw = (OneOrMore) e;
       final Expansion nested_e = e_nrw.getExpansion();
-      // codeGen.genCodeLine(" if (jj_3" + nested_internalNames.get(e) +
-      // "()) " + genReturn(true));
-      ccb.println("    if (" + genjj_3Call(nested_e) + ") " + genReturn(true));
-      // codeGen.genCodeLine(" if (jj_la == 0 && jj_scanpos == jj_lastpos)
-      // " + genReturn(false));
-      ccb.println("    while (true) {");
-      ccb.println("      xsp = jj_scanpos;");
-      // codeGen.genCodeLine(" if (jj_3" + nested_internalNames.get(e) +
-      // "()) { jj_scanpos = xsp; break; }");
-      ccb.println("      if (" + genjj_3Call(nested_e) + ") { jj_scanpos = xsp; break; }");
-      // codeGen.genCodeLine(" if (jj_la == 0 && jj_scanpos == jj_lastpos)
-      // " + genReturn(false));
-      ccb.println("    }");
+      ccb.println(ind + "    if (" + genjj_3Call(nested_e) + ") " + genReturn(true, 0, ind));
+      ccb.println(ind + "    while (true) {");
+      ccb.println(ind + "      xsp = jj_scanpos;");
+      ccb.println(ind + "      if (" + genjj_3Call(nested_e) + ") { jj_scanpos = xsp; break; }");
+      ccb.println(ind + "    }");
+
     } else if (e instanceof ZeroOrMore) {
       if (!xsp_declared) {
         xsp_declared = true;
-        ccb.println("    Token* xsp;");
+        ccb.println(ind + "    Token* xsp;");
       }
       final ZeroOrMore e_nrw = (ZeroOrMore) e;
       final Expansion nested_e = e_nrw.getExpansion();
-      ccb.println("    while (true) {");
-      ccb.println("      xsp = jj_scanpos;");
-      // codeGen.genCodeLine(" if (jj_3" + nested_internalNames.get(e) +
-      // "()) { jj_scanpos = xsp; break; }");
-      ccb.println("      if (" + genjj_3Call(nested_e) + ") { jj_scanpos = xsp; break; }");
-      // codeGen.genCodeLine(" if (jj_la == 0 && jj_scanpos == jj_lastpos)
-      // " + genReturn(false));
-      ccb.println("    }");
+      ccb.println(ind + "    while (true) {");
+      ccb.println(ind + "      xsp = jj_scanpos;");
+      ccb.println(ind + "      if (" + genjj_3Call(nested_e) + ") { jj_scanpos = xsp; break; }");
+      ccb.println(ind + "    }");
+
     } else if (e instanceof ZeroOrOne) {
       if (!xsp_declared) {
         xsp_declared = true;
-        ccb.println("    Token* xsp;");
+        ccb.println(ind + "    Token* xsp;");
       }
       final ZeroOrOne e_nrw = (ZeroOrOne) e;
       final Expansion nested_e = e_nrw.getExpansion();
-      ccb.println("    xsp = jj_scanpos;");
-      // codeGen.genCodeLine(" if (jj_3" + nested_internalNames.get(e) +
-      // "()) jj_scanpos = xsp;");
-      ccb.println("    if (" + genjj_3Call(nested_e) + ") jj_scanpos = xsp;");
-      // codeGen.genCodeLine(" else if (jj_la == 0 && jj_scanpos ==
-      // jj_lastpos) " + genReturn(false));
+      ccb.println(ind + "    xsp = jj_scanpos;");
+      ccb.println(ind + "    if (" + genjj_3Call(nested_e) + ") jj_scanpos = xsp;");
     }
+
     if (!recursive_call) {
       indentamt += 2;
-      ccb.println("    " + genReturn(false));
+      ccb.println(ind + "    " + genReturn(false, 0, ind));
       if (Options.getDepthLimit() > 0) {
         ccb.println("#undef __ERROR_RET__");
       }
       indentamt -= 2;
-      ccb.println("  }");
+      ccb.println(ind + "  }");
       ccb.println();
     }
   }
@@ -2298,20 +2444,22 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
       return Integer.MAX_VALUE;
     }
     e.inMinimumSize = true;
+
     if (e instanceof RegularExpression) {
       retval = 1;
+
     } else if (e instanceof NonTerminal) {
       final NonTerminal e_nrw = (NonTerminal) e;
       final NormalProduction ntprod = context.globals().production_table.get(e_nrw.getName());
       if (ntprod instanceof CodeProduction) {
         retval = Integer.MAX_VALUE;
-        // Make caller think this is unending (for we do not go beyond JAVACODE
-        // during
-        // phase3 execution).
+        // Make caller think this is unending
+        //  (for we do not go beyond JAVACODE during phase3 execution).
       } else {
         final Expansion ntexp = ntprod.getExpansion();
         retval = minimumSize(ntexp);
       }
+
     } else if (e instanceof Choice) {
       int min = oldMin;
       Expansion nested_e;
@@ -2324,17 +2472,17 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
         }
       }
       retval = min;
+
     } else if (e instanceof Sequence) {
       int min = 0;
       final Sequence e_nrw = (Sequence) e;
-      // We skip the first element in the following iteration since it is the
-      // Lookahead object.
+      // We skip the first element in the following iteration since it is the Lookahead object.
       for (int i = 1; i < e_nrw.units.size(); i++) {
         final Expansion eseq = e_nrw.units.get(i);
         final int mineseq = minimumSize(eseq);
         if ((min == Integer.MAX_VALUE) || (mineseq == Integer.MAX_VALUE)) {
-          min = Integer.MAX_VALUE; // Adding infinity to something results in
-          // infinity.
+          // Adding infinity to something results in infinity.
+          min = Integer.MAX_VALUE;
         } else {
           min += mineseq;
           if (min > oldMin) {
@@ -2343,21 +2491,28 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
         }
       }
       retval = min;
+
     } else if (e instanceof TryBlock) {
       final TryBlock e_nrw = (TryBlock) e;
       retval = minimumSize(e_nrw.exp);
+
     } else if (e instanceof OneOrMore) {
       final OneOrMore e_nrw = (OneOrMore) e;
       retval = minimumSize(e_nrw.getExpansion());
+
     } else if (e instanceof ZeroOrMore) {
       retval = 0;
+
     } else if (e instanceof ZeroOrOne) {
       retval = 0;
+
     } else if (e instanceof Lookahead) {
       retval = 0;
+
     } else if (e instanceof Action) {
       retval = 0;
     }
+
     e.inMinimumSize = false;
     return retval;
   }
@@ -2372,7 +2527,7 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
       ccb.println("__jj_depth_inc __jj_depth_counter(this);");
       ccb.println("if (jj_depth > " + Options.getDepthLimit() + ") {");
       ccb.println("  jj_depth_error = true;");
-      ccb.println("  jj_consume_token(-1);");
+      //      ccb.println("  jj_consume_token(-1);");
       ccb.println("  errorHandler->parseError(token, getToken(1), __FUNCTION__), hasError = true;");
       if (!voidReturn) {
         ccb.println("  return __ERROR_RET__;"); // Non-recoverable
@@ -2388,6 +2543,18 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
     NormalProduction p;
     CppCodeProduction cp;
 
+    ccb.switchToIncludeFile();
+    ccb.println("  /* Lookahead phases return codes. */");
+    ccb.println();
+    ccb.println("#define LA_PHASE_2_FAILURE false");
+    ccb.println("#define LA_PHASE_2_SUCCESS true");
+    ccb.println("#define LA_PHASE_3_FAILURE true");
+    ccb.println("#define LA_PHASE_3_SUCCESS false");
+    ccb.println("#define LA_SCAN_TOKEN_FAILURE true");
+    ccb.println("#define LA_SCAN_TOKEN_SUCCESS false");
+    ccb.println();
+
+    ccb.switchToMainFile();
     for (final Iterator<NormalProduction> prodIterator =
             context.globals().bnfproductions.iterator();
         prodIterator.hasNext(); ) {
@@ -2476,7 +2643,7 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
 
     for (final Enumeration<Phase3Data> enumeration = phase3table.elements();
         enumeration.hasMoreElements(); ) {
-      buildPhase3Routine(enumeration.nextElement(), false);
+      buildPhase3Routine(enumeration.nextElement(), false, "");
     }
     ccb.switchToMainFile();
   }

@@ -54,13 +54,14 @@ public:
   /**
    * This constructor is used by the method "generateParseException" in the generated parser.
    * Calling this constructor generates a new object of this type with the fields "currentToken",
-   *  "expectedTokenSequences", "tokenImage, "expectedExpansionLine" and "expectedExpansionColumn" set.
+   *  "expectedTokenSequencesVal", "expectedTokenSequencesLocVal", "tokenImageVal"
+   *  and "locationVal" set.
    */
-  ParseException(   const Token* currentToken,
-                     const int** expectedTokenSequences,
-                 const JJString* tokenImage,
-                      const int* expectedExpansionLine,
-                      const int* expectedExpansionColumn);
+  ParseException(   const Token* currentTokenVal,
+                     const int** expectedTokenSequencesVal,
+                const JJString** expectedTokenSequencesLocVal,
+                 const JJString* tokenImageVal,
+                 const JJString* locationVal);
 
   /*
    * The following constructors are for use by you for whatever purpose you can think of.
@@ -91,6 +92,13 @@ public:
    */
   const int** expectedTokenSequences;
 
+  /**
+   * Each entry in this array is an array of strings.<br>
+   * Each array of strings represents a sequence of tokens images (by their ordinal values)
+   *  that are expected at this point of the parse.
+   */
+  const JJString** expectedTokenSequencesLoc;
+
   /*
    * This is a reference to the "tokenImage" array of the generated parser within which
    *  the parse error occurred.
@@ -99,14 +107,9 @@ public:
   const JJString* tokenImage;
   
   /**
-   * The beginning line of the expansion where the exception arose.
+   * The location of the expansion where the exception arose.
    */
-  const int* expectedExpansionLine;
-
-  /**
-   * The beginning column of the expansion where the exception arose.
-   */
-  const int* expectedExpansionColumn;
+  const JJString* location;
 
 private:
 
@@ -115,11 +118,11 @@ private:
    * If this object has been created due to a parse error and you do not catch it (i.e. it gets
    *  thrown from the parser), the correct error message gets displayed.
    */
-  JJString initialise(   const Token* currentToken, 
-                          const int** expectedTokenSequences, 
-                      const JJString* tokenImage,
-                           const int* expectedExpansionLine,
-                           const int* expectedExpansionColumn);
+  JJString initialise(   const Token* currToken, 
+                          const int** expTokenSequences, 
+                     const JJString** expTokenSequencesLoc, 
+                      const JJString* tokImage,
+                      const JJString* loc);
 
   /**
    * Used to convert raw characters to their escaped version when these raw version
