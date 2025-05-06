@@ -47,10 +47,14 @@ import org.javacc.parser.TokenizerData;
 class OtherFilesGenCPP {
 
   static void printTokenImages(final CppCodeBuilder ccb, final Context context) {
-    ccb.println("/** Literal token values. */");
+    ccb.println("  /**");
+    ccb.println("   * Tokens labels (if any) or images (if string literal) or named kinds");
+    ccb.println("   * (for non labeled non string literals).");
+    ccb.println("   */");
     ccb.println();
     int cnt = 0;
     ccb.println("static const JJChar tokenImage_" + cnt + "[] = ");
+    ccb.println("  // EOF");
     ccb.print("  ");
     OtherFilesGenCPP.printCharArray(ccb, "<EOF>");
     ccb.println(";");
@@ -59,24 +63,22 @@ class OtherFilesGenCPP {
       for (final RegExprSpec res : tp.respecs) {
         final RegularExpression re = res.rexp;
         ccb.println("static const JJChar tokenImage_" + ++cnt + "[] = ");
-        // prefer labels to literals
         if (!re.label.equals("")) {
           ccb.println("  // <" + re.label + ">");
           ccb.print("  ");
           OtherFilesGenCPP.printCharArray(ccb, "<" + re.label + ">");
         } else if (re instanceof RStringLiteral) {
-          final String image = ((RStringLiteral) re).image;
-          // need to escape chars
-          // ccb.println("  // " + image);
+          final String image = JavaCCGlobals.add_escapes(((RStringLiteral) re).image);
+          ccb.println("  // \"" + image + "\"");
           ccb.print("  ");
-          OtherFilesGenCPP.printCharArray(ccb, image);
+          OtherFilesGenCPP.printCharArray(ccb, "\"" + image + "\"");
         } else {
           if (re.tpContext.kind == TokenProduction.TOKEN) {
             context
                 .errors()
                 .warning(
                     re,
-                    "Consider giving this non-string token a label for better error reporting.");
+                    "Consider giving this (non string literal) token a label for better error reporting.");
           }
           ccb.println("  // " + "<token of kind " + re.ordinal + ">");
           ccb.print("  ");
@@ -86,54 +88,9 @@ class OtherFilesGenCPP {
       }
     }
     ccb.println();
-    ccb.println("static const JJChar* const tokenImages[] = {");
+    ccb.println("static const JJChar* const tokenImage[] = {");
     for (int i = 0; i <= cnt; i++) {
       ccb.println("  tokenImage_" + i + ", ");
-    }
-    ccb.println("};");
-    ccb.println();
-  }
-
-  static void printTokenLabels(final CppCodeBuilder ccb, final Context ctx) {
-    ccb.println("/** Literal token labels. */");
-    ccb.println();
-    int cnt = 0;
-    ccb.println("static const JJChar tokenLabel_" + cnt + "[] = ");
-    ccb.print("  ");
-    OtherFilesGenCPP.printCharArray(ccb, "<EOF>");
-    ccb.println(";");
-
-    for (final TokenProduction tp : ctx.globals().rexprlist) {
-      for (final RegExprSpec res : tp.respecs) {
-        final RegularExpression re = res.rexp;
-        ccb.println("static const JJChar tokenLabel_" + ++cnt + "[] = ");
-        if (re instanceof RStringLiteral) {
-          final String label = ((RStringLiteral) re).label;
-          ccb.println("  // <" + label + ">");
-          ccb.print("  ");
-          OtherFilesGenCPP.printCharArray(ccb, "<" + label + ">");
-        } else if (!re.label.equals("")) {
-          ccb.println("  // <" + re.label + ">");
-          ccb.print("  ");
-          OtherFilesGenCPP.printCharArray(ccb, "<" + re.label + ">");
-        } else {
-          if (re.tpContext.kind == TokenProduction.TOKEN) {
-            ctx.errors()
-                .warning(
-                    re,
-                    "Consider giving this non-string token a label for better error reporting.");
-          }
-          ccb.println("  // " + "<token of kind " + re.ordinal + ">");
-          ccb.print("  ");
-          OtherFilesGenCPP.printCharArray(ccb, "<token of kind " + re.ordinal + ">");
-        }
-        ccb.println(";");
-      }
-    }
-    ccb.println();
-    ccb.println("static const JJChar* const tokenLabels[] = {");
-    for (int i = 0; i <= cnt; i++) {
-      ccb.println("  tokenLabel_" + i + ", ");
     }
     ccb.println("};");
     ccb.println();
@@ -186,7 +143,6 @@ class OtherFilesGenCPP {
         ccb.println();
       }
       printTokenImages(ccb, context);
-      printTokenLabels(ccb, context);
 
       if (Options.stringValue(Options.UO__NAMESPACE).length() > 0) {
         ccb.println(Options.stringValue("NAMESPACE_CLOSE"));

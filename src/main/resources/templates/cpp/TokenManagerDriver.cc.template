@@ -369,7 +369,7 @@ int ${parserName}TokenManager::jjRunStringLiteralMatch() {
               << stringLiterals[index + len]
               << JJSPACE << JJWIDE(/) << JJSPACE
               << JJDBQUOTE
-              << addUnicodeEscapes(tokenImages[stringLiterals[index + len]])
+              << addUnicodeEscapes(tokenImage[stringLiterals[index + len]])
               << JJDBQUOTE
               << JJSPACE << JJWIDE(> (tm)) << std::endl;
       }
@@ -406,7 +406,7 @@ int ${parserName}TokenManager::jjRunStringLiteralMatch() {
                 << stringLiterals[index + len]
                 << JJSPACE << JJWIDE(/) << JJSPACE
                 << JJDBQUOTE
-                << addUnicodeEscapes(tokenImages[jjmatchedKind])
+                << addUnicodeEscapes(tokenImage[jjmatchedKind])
                 << JJDBQUOTE
                 << JJSPACE << JJWIDE(> (tm)) << std::endl;
         }
@@ -528,7 +528,7 @@ int ${parserName}TokenManager::jjMoveNfa(int startState, int curPos) {
               << JJWIDE(Looking to move from state:) << JJSPACE << disp_state(state)
               << JJCOMMA << JJSPACE << JJWIDE(for token: <)
               << (jjmatchKinds[state] != INT_MAX
-                     ? (jjmatchKinds[state] + " / " + addUnicodeEscapes(tokenImages[jjmatchKinds[state]]))
+                     ? (jjmatchKinds[state] + " / " + addUnicodeEscapes(tokenImage[jjmatchKinds[state]]))
                      : JJWIDE(<UNKNOWN>))
               << JJSPACE << JJWIDE(> (tm)) << std::endl;
       }
@@ -553,7 +553,7 @@ int ${parserName}TokenManager::jjMoveNfa(int startState, int curPos) {
           if (trace_enabled()) {
             JJERR << JJSPACE << JJSPACE << JJSPACE << JJSPACE
                   << JJWIDE(Found a match of kind:) << JJSPACE << kind << JJSPACE
-                  << addUnicodeEscapes(tokenLabels[kind])
+                  << addUnicodeEscapes(tokenImage[kind])
                   << JJSPACE << JJWIDE(using the first:) << JJSPACE
                   << curPos << JJSPACE << JJWIDE(characters)
                   << JJSPACE << JJWIDE((tm)) << std::endl;

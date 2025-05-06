@@ -93,7 +93,13 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
   private final Map<Expansion, String> internalNames = new HashMap<>();
   private final Map<Expansion, Integer> internalIndexes = new HashMap<>();
 
-  private CppCodeBuilder ccb;
+  private CppCodeBuilder cb;
+
+  /**
+   * To be set to true to add debug comment tags in the generated code (to ease linking it with this
+   * generator), false otherwise (which should be the normal case).
+   */
+  private static final boolean DCT = true;
 
   ParserCodeGenerator(final Context context) {
     this.context = context;
@@ -106,549 +112,549 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
     tn.add(JavaCCGlobals.toolName);
 
     final File file = new File(Options.getOutputDirectory(), parserData.parserName + ".cc");
-    ccb = CppCodeBuilder.of(context, settings).setFile(file);
+    cb = CppCodeBuilder.of(context, settings).setFile(file);
 
     if (context.globals().jjtreeGenerated) {
-      ccb.switchToStaticsFile();
-      ccb.println("#include \"" + context.globals().cu_name + "Tree.h\"\n");
+      cb.switchToStaticsFile();
+      cb.println("#include \"" + context.globals().cu_name + "Tree.h\"\n");
     }
 
-    ccb.switchToIncludeFile();
+    cb.switchToIncludeFile();
     final String guard = "JAVACC_" + parserData.parserName.toUpperCase() + "_H";
-    ccb.println("#ifndef " + guard);
-    ccb.println("#define " + guard);
-    ccb.println();
+    cb.println("#ifndef " + guard);
+    cb.println("#define " + guard);
+    cb.println();
+
+    cb.println("#include <cstdarg>");
+    cb.println("#include <exception>");
+    cb.println();
 
     if (!Options.getLibrary().isEmpty()) {
-      ccb.println("#include \"ImportExport.h\"");
+      cb.println("#include \"ImportExport.h\"");
     }
-    ccb.println("#include \"JavaCC.h\"");
-    ccb.println("#include \"CharStream.h\"");
-    ccb.println("#include \"Token.h\"");
-    ccb.println("#include \"TokenManager.h\"");
+    cb.println("#include \"JavaCC.h\"");
+    cb.println("#include \"CharStream.h\"");
+    cb.println("#include \"Token.h\"");
+    cb.println("#include \"TokenManager.h\"");
     printInclude(Options.getTokenInclude());
     printInclude(Options.getParserInclude());
 
     if (Options.getTokenConstantsInclude().isEmpty()) {
-      ccb.println("#include \"" + context.globals().cu_name + "Constants.h\"");
+      cb.println("#include \"" + context.globals().cu_name + "Constants.h\"");
     } else {
-      ccb.println("#include \"" + Options.getTokenConstantsInclude() + "\" // user defined option");
+      cb.println("#include \"" + Options.getTokenConstantsInclude() + "\" // user defined option");
     }
     if (context.globals().jjtreeGenerated) {
-      ccb.println("#include \"JJT" + context.globals().cu_name + "State.h\"");
+      cb.println("#include \"JJT" + context.globals().cu_name + "State.h\"");
     }
-    ccb.println("#include \"DefaultParserErrorHandler.h\"");
+    cb.println("#include \"DefaultParserErrorHandler.h\"");
     if (context.globals().jjtreeGenerated) {
-      ccb.println("#include \"" + context.globals().cu_name + "Tree.h\"");
+      cb.println("#include \"" + context.globals().cu_name + "Tree.h\"");
     }
-    ccb.println();
+    cb.println();
 
     if (Options.hasNamespace()) {
-      ccb.println("namespace " + Options.stringValue("NAMESPACE_OPEN") + " // user defined option");
-      ccb.println();
+      cb.println("namespace " + Options.stringValue("NAMESPACE_OPEN") + " // user defined option");
+      cb.println();
     }
 
-    ccb.println("/* Base code I (.h) */");
-    ccb.println();
-    ccb.print("struct ");
+    cb.println("/* Base code I (.h) */");
+    cb.println();
+    cb.print("struct ");
     if (!Options.getLibrary().isEmpty()) {
-      ccb.print(parserData.parserName.toUpperCase() + "_API ");
+      cb.print(parserData.parserName.toUpperCase() + "_API ");
     }
-    ccb.println("JJCalls {");
-    ccb.println("  int        arg;");
-    ccb.println("  int        gen;");
-    ccb.println("  Token*     first;");
-    ccb.println("  JJCalls*   next;");
-    ccb.println("  JJCalls()  {");
-    ccb.println("    arg   = 0;");
-    ccb.println("    gen   = -1;");
-    ccb.println("    first = nullptr;");
-    ccb.println("    next  = nullptr;");
-    ccb.println("  }");
-    ccb.println("  ~JJCalls() {");
-    ccb.println("    delete next;");
-    ccb.println("  }");
-    ccb.println("};");
-    ccb.println();
+    cb.println("JJCalls {");
+    cb.println("  int        arg;");
+    cb.println("  int        gen;");
+    cb.println("  Token*     first;");
+    cb.println("  JJCalls*   next;");
+    cb.println("  JJCalls()  {");
+    cb.println("    arg   = 0;");
+    cb.println("    gen   = -1;");
+    cb.println("    first = nullptr;");
+    cb.println("    next  = nullptr;");
+    cb.println("  }");
+    cb.println("  ~JJCalls() {");
+    cb.println("    delete next;");
+    cb.println("  }");
+    cb.println("};");
+    cb.println();
 
-    ccb.genClassStart("", context.globals().cu_name, new String[] {}, new String[0]);
+    cb.genClassStart("", context.globals().cu_name, new String[] {}, new String[0]);
 
-    ccb.switchToMainFile();
-    ccb.println("/* User code (parser_begin-parser_end section) */");
+    cb.switchToMainFile();
+    cb.println("/* User code (parser_begin <-> parser_end section) */");
     if (context.globals().cu_to_insertion_point_2.size() != 0) {
-      ccb.printTokenSetup(context.globals().cu_to_insertion_point_2.get(0));
+      cb.printTokenSetup(context.globals().cu_to_insertion_point_2.get(0));
       for (final Token token : context.globals().cu_to_insertion_point_2) {
-        ccb.printToken(token);
+        cb.printToken(token);
       }
     }
+
     if (Options.hasNamespace()) {
-      ccb.println("namespace " + Options.stringValue("NAMESPACE_OPEN") + " // user defined option");
+      cb.println("namespace " + Options.stringValue("NAMESPACE_OPEN") + " // user defined option");
     }
-    ccb.println();
-    ccb.println("/* Generated code for user productions (.cc) */");
-    ccb.println();
 
-    ccb.switchToIncludeFile();
-    ccb.println();
-    ccb.println("/* Generated code for user productions (.h) */");
-    ccb.println();
-
-    ccb.switchToMainFile();
-
+    cb.println();
+    cb.println("/* Generated code for user productions (.cc) */");
+    cb.println();
+    cb.switchToIncludeFile();
+    cb.println();
+    cb.println("/* Generated code for user productions (.h) */");
+    cb.println();
+    cb.switchToMainFile();
     build();
 
-    ccb.switchToMainFile();
-    ccb.println("  /* Base code II (.cc) */");
-    ccb.println();
+    cb.switchToMainFile();
+    cb.println("  /* Base code II (.cc) */");
+    cb.println();
 
-    ccb.switchToIncludeFile();
-    ccb.println();
-    ccb.println("/* Base code II (.h) */");
-    ccb.println();
-    ccb.println("public: ");
-    ccb.println("  void setErrorHandler(ParserErrorHandler* eh) {");
-    ccb.println("    if (delete_eh) delete errorHandler;");
-    ccb.println("    errorHandler = eh;");
-    ccb.println("    delete_eh = false;");
-    ccb.println("  }");
-    ccb.println();
-    ccb.println("  const ParserErrorHandler* getErrorHandler() {");
-    ccb.println("    return errorHandler;");
-    ccb.println("  }");
-    ccb.println();
-    ccb.println("  static const JJChar* getTokenImage(int kind) {");
-    ccb.println(
-        "    return kind >= 0 ? " + getTokenImages() + "[kind] : " + getTokenImages() + "[0];");
-    ccb.println("  }");
-    ccb.println();
-    ccb.println("  static const JJChar* getTokenLabel(int kind) {");
-    ccb.println(
-        "    return kind >= 0 ? " + getTokenLabels() + "[kind] : " + getTokenLabels() + "[0];");
-    ccb.println("  }");
-    ccb.println();
-    ccb.println("  TokenManager*          token_source = nullptr;");
-    ccb.println("  CharStream*            jj_input_stream = nullptr;");
-    ccb.println("  Token*                 token = nullptr;  // Current token.");
-    ccb.println("  Token*                 jj_nt = nullptr;  // Next token.");
-    ccb.println();
-    ccb.println("private: ");
-    ccb.println("  int                    jj_ntk;");
+    cb.switchToIncludeFile();
+    cb.println();
+    cb.println("/* Base code II (.h) */");
+    cb.println();
+    cb.println("public: ");
+    cb.println("  void setErrorHandler(ParserErrorHandler* eh) {");
+    cb.println("    if (delete_eh) delete errorHandler;");
+    cb.println("    errorHandler = eh;");
+    cb.println("    delete_eh = false;");
+    cb.println("  }");
+    cb.println();
+    cb.println("  const ParserErrorHandler* getErrorHandler() {");
+    cb.println("    return errorHandler;");
+    cb.println("  }");
+    cb.println();
+    cb.println("  const bool getHasError() {");
+    cb.println("    return hasError;");
+    cb.println("  }");
+    cb.println();
+    cb.println("  const JJString getErrorMsg() {");
+    cb.println("    return errorHandler->getErrorStr();");
+    cb.println("  }");
+    cb.println();
+    cb.println("  static const JJChar* getTokenImage(int kind) {");
+    cb.println(
+        "    return kind >= 0 ? " + getTokenImage() + "[kind] : " + getTokenImage() + "[0];");
+    cb.println("  }");
+    cb.println();
+    cb.println();
+    cb.println("  TokenManager*          token_source = nullptr;");
+    cb.println("  CharStream*            jj_input_stream = nullptr;");
+    cb.println("  Token*                 token = nullptr;  // Current token.");
+    cb.println("  Token*                 jj_nt = nullptr;  // Next token.");
+    cb.println();
+    cb.println("private: ");
+    cb.println("  int                    jj_ntk;");
 
-    ccb.println("  JJCalls                jj_2_rtns[" + (context.globals().jj2index + 1) + "];");
-    ccb.println("  bool                   jj_rescan;");
-    ccb.println("  int                    jj_gc;");
-    ccb.println("  Token*                 jj_scanpos;");
-    ccb.println("  Token*                 jj_lastpos;");
-    ccb.println("  int                    jj_la;");
-    ccb.println("  bool                   jj_lookingAhead;  // Whether we are looking ahead.");
-    ccb.println("  bool                   jj_semLA;");
+    cb.println("  JJCalls                jj_2_rtns[" + (context.globals().jj2index + 1) + "];");
+    cb.println("  bool                   jj_rescan;");
+    cb.println("  int                    jj_gc;");
+    cb.println("  Token*                 jj_scanpos;");
+    cb.println("  Token*                 jj_lastpos;");
+    cb.println("  int                    jj_la;");
+    cb.println("  bool                   jj_lookingAhead;  // Whether we are looking ahead.");
+    cb.println("  bool                   jj_semLA;");
 
     if (Options.getErrorReporting()) {
-      ccb.println("  int                    jj_gen;");
-      ccb.println("  int                    jj_la1[" + (context.globals().maskindex + 1) + "];");
-      ccb.println(
-          "  char*                  jj_la1_loc[" + (context.globals().maskindex + 1) + "];");
+      cb.println("  int                    jj_gen;");
+      cb.println("  int                    jj_la1[" + (context.globals().maskindex + 1) + "];");
+      cb.println("  char*                  jj_la1_loc[" + (context.globals().maskindex + 1) + "];");
     }
 
-    ccb.println("  ParserErrorHandler*    errorHandler = nullptr;");
-    ccb.println();
-    ccb.println("protected: ");
-    ccb.println("  bool                   delete_eh = false;");
-    ccb.println("  bool                   delete_tokens = true;");
-    ccb.println("  bool                   hasError;");
-    ccb.println();
+    cb.println("  ParserErrorHandler*    errorHandler = nullptr;");
+    cb.println();
+    cb.println("protected: ");
+    cb.println("  bool                   delete_eh = false;");
+    cb.println("  bool                   delete_tokens = true;");
+    cb.println("  bool                   hasError;");
+    cb.println();
 
     final int tokenMaskSize = ((context.globals().tokenCount - 1) / 32) + 1;
     if (Options.getErrorReporting() && (tokenMaskSize > 0)) {
-      ccb.switchToStaticsFile();
-      ccb.println("#include \"TokenManagerError.h\"");
-      ccb.println();
-      ccb.println("/* Base code I (.cc, static) */");
-      ccb.println();
+      cb.switchToStaticsFile();
+      cb.println("#include \"TokenManagerError.h\"");
+      cb.println();
+      cb.println("/* Base code I (.cc, static) */");
+      cb.println();
       for (int i = 0; i < tokenMaskSize; i++) {
         if (context.globals().maskVals.size() > 0) {
-          ccb.println("static unsigned int jj_la1_" + i + "[] = {");
+          cb.println("static unsigned int jj_la1_" + i + "[] = {");
           int j = 0;
           for (final int[] tokenMask : context.globals().maskVals) {
             if (j > 0) {
-              ccb.print(", ");
+              cb.print(", ");
             } else {
               j++;
-              ccb.print("  ");
+              cb.print("  ");
             }
-            ccb.print("0x" + Integer.toHexString(tokenMask[i]));
+            cb.print("0x" + Integer.toHexString(tokenMask[i]));
           }
-          ccb.println();
-          ccb.println("};");
+          cb.println();
+          cb.println("};");
         }
       }
-      ccb.println();
+      cb.println();
     }
 
     if (Options.getDepthLimit() > 0) {
-      ccb.println("  private: int jj_depth;");
-      ccb.println("  private: bool jj_depth_error;");
-      ccb.println("  friend class __jj_depth_inc;");
-      ccb.println("  class __jj_depth_inc {public:");
-      ccb.println("    " + context.globals().cu_name + "* parent;");
-      ccb.println(
+      cb.println("  private: int jj_depth;");
+      cb.println("  private: bool jj_depth_error;");
+      cb.println("  friend class __jj_depth_inc;");
+      cb.println("  class __jj_depth_inc {public:");
+      cb.println("    " + context.globals().cu_name + "* parent;");
+      cb.println(
           "    __jj_depth_inc("
               + context.globals().cu_name
               + "* p): parent(p) { parent->jj_depth++; };");
-      ccb.println("    ~__jj_depth_inc(){ parent->jj_depth--; }");
-      ccb.println("  };");
-      ccb.println();
+      cb.println("    ~__jj_depth_inc(){ parent->jj_depth--; }");
+      cb.println("  };");
+      cb.println();
     }
 
     if (!Options.getStackLimit().equals("")) {
-      ccb.println("  public: size_t jj_stack_limit;");
-      ccb.println("  private: void* jj_stack_base;");
-      ccb.println("  private: bool jj_stack_error;");
-      ccb.println();
+      cb.println("  public: size_t jj_stack_limit;");
+      cb.println("  private: void* jj_stack_base;");
+      cb.println("  private: bool jj_stack_error;");
+      cb.println();
     }
 
-    ccb.switchToIncludeFile(); // TEMP
-    ccb.println("  Token*                 head;");
-    ccb.println();
-    ccb.println("public: ");
+    cb.switchToIncludeFile(); // TEMP
+    cb.println("  Token*                 head;");
+    cb.println();
+    cb.println("public: ");
 
-    ccb.generateMethodDefHeader(
+    cb.generateMethodDefHeader(
         "", context.globals().cu_name, context.globals().cu_name + "(TokenManager* tokenManager)");
-    ccb.println(" {");
-    ccb.println("  head = nullptr;");
-    ccb.println("  ReInit(tokenManager);");
+    cb.println(" {");
+    cb.println("  head = nullptr;");
+    cb.println("  ReInit(tokenManager);");
     if (Options.getTokenManagerUsesParser()) {
-      ccb.println("    tokenManager->setParser(this);");
+      cb.println("    tokenManager->setParser(this);");
     }
-    ccb.println("}");
-    ccb.println();
+    cb.println("}");
+    cb.println();
 
-    ccb.switchToIncludeFile();
-    ccb.println("  virtual ~" + context.globals().cu_name + "();");
-    ccb.println();
-    ccb.switchToMainFile();
-    ccb.print(context.globals().cu_name + "::~" + context.globals().cu_name + "()");
-    ccb.println(" {");
-    ccb.println("  clear();");
-    ccb.println("}");
-    ccb.println();
+    cb.switchToIncludeFile();
+    cb.println("  virtual ~" + context.globals().cu_name + "();");
+    cb.println();
+    cb.switchToMainFile();
+    cb.print(context.globals().cu_name + "::~" + context.globals().cu_name + "()");
+    cb.println(" {");
+    cb.println("  clear();");
+    cb.println("}");
+    cb.println();
 
-    ccb.generateMethodDefHeader(
+    cb.generateMethodDefHeader(
         "void", context.globals().cu_name, "ReInit(TokenManager* tokenManager)");
-    ccb.println("{");
-    ccb.println("  clear();");
-    ccb.println("  errorHandler = new DefaultParserErrorHandler();");
-    ccb.println("  delete_eh = true;");
-    ccb.println("  hasError = false;");
-    ccb.println("  token_source = tokenManager;");
-    ccb.println("  head = token = new " + getTokenType() + ";");
-    ccb.println("  jj_lookingAhead = false;");
-    ccb.println("  jj_rescan = false;");
-    ccb.println("  jj_done = false;");
-    ccb.println("  jj_scanpos = jj_lastpos = nullptr;");
-    ccb.println("  jj_gc = 0;");
+    cb.println(" {");
+    cb.println("  clear();");
+    cb.println("  errorHandler = new DefaultParserErrorHandler();");
+    cb.println("  delete_eh = true;");
+    cb.println("  hasError = false;");
+    cb.println("  token_source = tokenManager;");
+    cb.println("  head = token = new " + getTokenType() + ";");
+    cb.println("  jj_lookingAhead = false;");
+    cb.println("  jj_rescan = false;");
+    cb.println("  jj_laok = false;");
+    cb.println("  jj_scanpos = jj_lastpos = nullptr;");
+    cb.println("  jj_gc = 0;");
     if (Options.getDebugParser() || Options.getDebugLookahead()) {
-      ccb.println("  trace_indent = 0;");
+      cb.println("  trace_indent = 0;");
     }
     if (Options.getDebugParser()) {
-      ccb.println("  trace = true;");
+      cb.println("  trace = true;");
     }
     if (Options.getDebugLookahead()) {
-      ccb.println("  trace_la = true;");
+      cb.println("  trace_la = true;");
     }
     if (!Options.getStackLimit().equals("")) {
-      ccb.println("  jj_stack_limit = " + Options.getStackLimit() + ";");
-      ccb.println("  jj_stack_error = jj_stack_check(true);");
+      cb.println("  jj_stack_limit = " + Options.getStackLimit() + ";");
+      cb.println("  jj_stack_error = jj_stack_check(true);");
     }
 
     if (Options.getCacheTokens()) {
-      ccb.println("  token->next() = jj_nt = token_source->getNextToken();");
+      cb.println("  token->next() = jj_nt = token_source->getNextToken();");
     } else {
-      ccb.println("  jj_ntk = -1;");
+      cb.println("  jj_ntk = -1;");
     }
     if (context.globals().jjtreeGenerated) {
-      ccb.println("  jjtree.reset();");
+      cb.println("  jjtree.reset();");
     }
     if (Options.getDepthLimit() > 0) {
-      ccb.println("  jj_depth = 0;");
-      ccb.println("  jj_depth_error = false;");
+      cb.println("  jj_depth = 0;");
+      cb.println("  jj_depth_error = false;");
     }
     if (Options.getErrorReporting()) {
-      ccb.println("  jj_gen = 0;");
+      cb.println("  jj_gen = 0;");
       if (context.globals().maskindex > 0) {
-        ccb.println("  for (int i = 0; i < " + context.globals().maskindex + "; i++) {");
-        ccb.println("    jj_la1[i] = -1;");
-        ccb.println("    jj_la1_loc[i] = nullptr;");
-        ccb.println("  }");
+        cb.println("  for (int i = 0; i < " + context.globals().maskindex + "; i++) {");
+        cb.println("    jj_la1[i] = -1;");
+        cb.println("    jj_la1_loc[i] = nullptr;");
+        cb.println("  }");
       }
     }
-    ccb.println("}");
-    ccb.println();
+    cb.println("}");
+    cb.println();
 
-    ccb.generateMethodDefHeader("void", context.globals().cu_name, "clear()");
-    ccb.println("{");
-    ccb.println(
+    cb.generateMethodDefHeader("void", context.globals().cu_name, "clear()");
+    cb.println(" {");
+    cb.println(
         "  // Since token manager was generated from outside, parser should not take care of deleting it");
-    ccb.println("  // if (token_source) delete token_source;");
-    ccb.println("  if (delete_tokens && head) {");
-    ccb.println("    Token* next;");
-    ccb.println("    Token* t = head;");
-    ccb.println("    while (t) {");
-    ccb.println("      next = t->next();");
-    ccb.println("      delete t;");
-    ccb.println("      t = next;");
-    ccb.println("    }");
-    ccb.println("  }");
-    ccb.println("  if (delete_eh) {");
-    ccb.println("    delete errorHandler, errorHandler = nullptr;");
-    ccb.println("    delete_eh = false;");
-    ccb.println("  }");
+    cb.println("  // if (token_source) delete token_source;");
+    cb.println("  if (delete_tokens && head) {");
+    cb.println("    Token* next;");
+    cb.println("    Token* t = head;");
+    cb.println("    while (t) {");
+    cb.println("      next = t->next();");
+    cb.println("      delete t;");
+    cb.println("      t = next;");
+    cb.println("    }");
+    cb.println("  }");
+    cb.println("  if (delete_eh) {");
+    cb.println("    delete errorHandler, errorHandler = nullptr;");
+    cb.println("    delete_eh = false;");
+    cb.println("  }");
     if (Options.getDepthLimit() > 0) {
-      ccb.println("  assert(jj_depth==0);");
+      cb.println("  assert(jj_depth==0);");
     }
-    ccb.println("}");
-    ccb.println();
+    cb.println("}");
+    cb.println();
 
     if (!Options.getStackLimit().equals("")) {
-      ccb.println();
-      ccb.switchToIncludeFile();
-      ccb.println(" virtual");
-      ccb.switchToMainFile();
-      ccb.generateMethodDefHeader("bool", context.globals().cu_name, "jj_stack_check(bool init)");
-      ccb.println(" {");
-      ccb.println("   if (init) {");
-      ccb.println("     jj_stack_base = nullptr;");
-      ccb.println("     return false;");
-      ccb.println("   } else {");
-      ccb.println("     volatile int q = 0;");
-      ccb.println("     if (!jj_stack_base) {");
-      ccb.println("       jj_stack_base = (void*)&q;");
-      ccb.println("       return false;");
-      ccb.println("     } else {");
-      ccb.println("       // Stack can grow in both directions, depending on arch");
-      ccb.println("       std::ptrdiff_t used = (char*)jj_stack_base-(char*)&q;");
-      ccb.println("       return (std::abs(used) > jj_stack_limit);");
-      ccb.println("     }");
-      ccb.println("   }");
-      ccb.println("}");
+      cb.println();
+      cb.switchToIncludeFile();
+      cb.println(" virtual");
+      cb.switchToMainFile();
+      cb.generateMethodDefHeader("bool", context.globals().cu_name, "jj_stack_check(bool init)");
+      cb.println(" {");
+      cb.println("   if (init) {");
+      cb.println("     jj_stack_base = nullptr;");
+      cb.println("     return false;");
+      cb.println("   } else {");
+      cb.println("     volatile int q = 0;");
+      cb.println("     if (!jj_stack_base) {");
+      cb.println("       jj_stack_base = (void*)&q;");
+      cb.println("       return false;");
+      cb.println("     } else {");
+      cb.println("       // Stack can grow in both directions, depending on arch");
+      cb.println("       std::ptrdiff_t used = (char*)jj_stack_base-(char*)&q;");
+      cb.println("       return (std::abs(used) > jj_stack_limit);");
+      cb.println("     }");
+      cb.println("   }");
+      cb.println("}");
     }
 
     /* jj_consume_token(int kind) */
-    ccb.println(
+    cb.println(
         "/** Consume a token of an expected given kind, throwing an exception if different. */");
     if (Options.getErrorReporting()) {
-      ccb.generateMethodDefHeader(
+      cb.generateMethodDefHeader(
           "Token*", context.globals().cu_name, "jj_consume_token(int kind, char* loc)");
     } else {
-      ccb.generateMethodDefHeader(
-          "Token*", context.globals().cu_name, "jj_consume_token(int kind)");
+      cb.generateMethodDefHeader("Token*", context.globals().cu_name, "jj_consume_token(int kind)");
     }
-    ccb.println(" {");
+    cb.println(" {");
     if (!Options.getStackLimit().equals("")) {
-      ccb.println("  if (kind != -1 && (jj_stack_error || jj_stack_check(false))) {");
-      ccb.println("    if (!jj_stack_error) {");
-      ccb.println("      errorHandler->otherError(\"Stack overflow while trying to parse\");");
-      ccb.println("      jj_stack_error=true;");
-      ccb.println("    }");
-      ccb.println("    return jj_consume_token(-1);");
-      ccb.println("  }");
+      cb.println("  if (kind != -1 && (jj_stack_error || jj_stack_check(false))) {");
+      cb.println("    if (!jj_stack_error) {");
+      cb.println("      errorHandler->otherError(\"Stack overflow while trying to parse\");");
+      cb.println("      jj_stack_error=true;");
+      cb.println("    }");
+      cb.println("    return jj_consume_token(-1);");
+      cb.println("  }");
     }
-    ccb.println("  Token* oldToken = token;");
+    cb.println("  Token* oldToken = token;");
     if (Options.getCacheTokens()) {
-      ccb.println("  if ((token = jj_nt)->next() != nullptr) jj_nt = jj_nt->next();");
-      ccb.println("  else jj_nt = jj_nt->next() = token_source->getNextToken();");
+      cb.println("  if ((token = jj_nt)->next() != nullptr) jj_nt = jj_nt->next();");
+      cb.println("  else jj_nt = jj_nt->next() = token_source->getNextToken();");
     } else {
-      ccb.println("  Token* oldToken;");
-      ccb.println("  if (token->next() != nullptr) token = token->next();");
-      ccb.println("  else token = token->next() = token_source->getNextToken();");
-      ccb.println("  jj_ntk = -1;");
+      cb.println("  if (token->next() != nullptr) token = token->next();");
+      cb.println("  else token = token->next() = token_source->getNextToken();");
+      cb.println("  jj_ntk = -1;");
     }
-    ccb.println("  if (token->kind() == kind) {");
+    cb.println("  if (token->kind() == kind) {");
     if (Options.getErrorReporting()) {
-      ccb.println("    jj_gen++;");
+      cb.println("    jj_gen++;");
       if (context.globals().jj2index != 0) {
-        ccb.println("    if (++jj_gc > MAX_NB_POS) {");
-        ccb.println("      jj_gc = 0;");
-        ccb.println("      for (int i = 0; i < " + context.globals().jj2index + "; i++) {");
-        ccb.println("        JJCalls *c = &jj_2_rtns[i];");
-        ccb.println("        while (c != nullptr) {");
-        ccb.println("          if (c->gen < jj_gen) c->first = nullptr;");
-        ccb.println("          c = c->next;");
-        ccb.println("        }");
-        ccb.println("      }");
-        ccb.println("    }");
+        cb.println("    if (++jj_gc > MAX_NB_POS) {");
+        cb.println("      jj_gc = 0;");
+        cb.println("      for (int i = 0; i < " + context.globals().jj2index + "; i++) {");
+        cb.println("        JJCalls *c = &jj_2_rtns[i];");
+        cb.println("        while (c != nullptr) {");
+        cb.println("          if (c->gen < jj_gen) c->first = nullptr;");
+        cb.println("          c = c->next;");
+        cb.println("        }");
+        cb.println("      }");
+        cb.println("    }");
       }
     }
     if (Options.getDebugParser()) {
-      ccb.println("    trace_consumed(token, \" (in jj_consume_token())\");");
+      cb.println("    trace_consumed(token, \" (in jj_consume_token())\");");
     }
-    ccb.println("    return token;");
-    ccb.println("  }");
+    cb.println("    return token;");
+    cb.println("  }");
     if (Options.getCacheTokens()) {
-      ccb.println("  jj_nt = token;");
+      cb.println("  jj_nt = token;");
     }
     if (Options.getDebugLookahead()) {
-      ccb.println("    if (kind >= 0) trace_expected(kind, token, loc);");
+      cb.println("    if (kind >= 0) trace_expected(kind, token, loc);");
     }
-    ccb.println("  token = oldToken;");
+    cb.println("  token = oldToken;");
     if (Options.getErrorReporting()) {
-      ccb.println("  jj_kind = kind;");
+      cb.println("  jj_kind = kind;");
     }
     // equivalent of " throw generateParseException();");
     if (!Options.getStackLimit().equals("")) {
-      ccb.println("  if (!jj_stack_error) {");
+      cb.println("  if (!jj_stack_error) {");
     }
-    ccb.println("  const JJString expectedImage = getTokenImage(kind);");
-    ccb.println("  const JJString expectedLabel = getTokenLabel(kind);");
+    cb.println("  const JJString expectedImage = getTokenImage(kind);");
 
-    ccb.println("  const Token*   actualToken   = getToken(1);");
-    ccb.println("  const JJString actualImage   = getTokenImage(actualToken->kind());");
-    ccb.println("  const JJString actualLabel   = getTokenLabel(actualToken->kind());");
-    ccb.println(
-        "  errorHandler->unexpectedToken(expectedImage, expectedLabel, actualImage, actualLabel, actualToken, loc);");
+    cb.println("  const Token*   actualToken   = getToken(1);");
+    cb.println("  const JJString actualImage   = getTokenImage(actualToken->kind());");
+    cb.println("  errorHandler->unexpectedToken(expectedImage, actualImage, actualToken, loc);");
     if (!Options.getStackLimit().equals("")) {
-      ccb.println("  }");
+      cb.println("  }");
     }
-    ccb.println("  hasError = true;");
-    ccb.println("  return token;");
-    ccb.println("}");
-    ccb.println();
+    cb.println("  hasError = true;");
+    cb.println("  return token;");
+    cb.println("}");
+    cb.println();
 
     /* jj_scan_token(int kind) */
     if (context.globals().jj2index != 0) {
-      ccb.println(
+      cb.println(
           "/** Scans for a token of a given expected kind, returning success or failure. */");
-      ccb.switchToMainFile();
+      cb.switchToMainFile();
       if (Options.getErrorReporting()) {
-        ccb.generateMethodDefHeader(
+        cb.generateMethodDefHeader(
             "bool", context.globals().cu_name, "jj_scan_token(int kind, char* loc)");
       } else {
-        ccb.generateMethodDefHeader("bool", context.globals().cu_name, "jj_scan_token(int kind)");
+        cb.generateMethodDefHeader("bool", context.globals().cu_name, "jj_scan_token(int kind)");
       }
-      ccb.println(" {");
+      cb.println(" {");
       if (!Options.getStackLimit().equals("")) {
-        ccb.println("  if (kind != -1 && (jj_stack_error || jj_stack_check(false))) {");
-        ccb.println("    if (!jj_stack_error) {");
-        ccb.println("      errorHandler->otherError(\"Stack overflow while trying to parse\");");
-        ccb.println("      jj_stack_error=true;");
-        ccb.println("    }");
-        ccb.println("    return jj_consume_token(-1);");
-        ccb.println("  }");
+        cb.println("  if (kind != -1 && (jj_stack_error || jj_stack_check(false))) {");
+        cb.println("    if (!jj_stack_error) {");
+        cb.println("      errorHandler->otherError(\"Stack overflow while trying to parse\");");
+        cb.println("      jj_stack_error=true;");
+        cb.println("    }");
+        cb.println("    return jj_consume_token(-1);");
+        cb.println("  }");
       }
-      ccb.println("  if (jj_scanpos == jj_lastpos) {");
-      ccb.println("    jj_la--;");
-      ccb.println("    if (jj_scanpos->next() == nullptr) {");
-      ccb.println(
+      cb.println("  if (jj_scanpos == jj_lastpos) {");
+      cb.println("    jj_la--;");
+      cb.println("    if (jj_scanpos->next() == nullptr) {");
+      cb.println(
           "      jj_lastpos = jj_scanpos = jj_scanpos->next() = token_source->getNextToken();");
-      ccb.println("    } else {");
-      ccb.println("      jj_lastpos = jj_scanpos = jj_scanpos->next();");
-      ccb.println("    }");
-      ccb.println("  } else {");
-      ccb.println("    jj_scanpos = jj_scanpos->next();");
-      ccb.println("  }");
+      cb.println("    } else {");
+      cb.println("      jj_lastpos = jj_scanpos = jj_scanpos->next();");
+      cb.println("    }");
+      cb.println("  } else {");
+      cb.println("    jj_scanpos = jj_scanpos->next();");
+      cb.println("  }");
       if (Options.getErrorReporting()) {
-        ccb.println("  if (jj_rescan) {");
-        ccb.println("    int i = 0; Token* tok = token;");
-        ccb.println("    while (tok != nullptr && tok != jj_scanpos) {");
-        ccb.println("      i++;");
-        ccb.println("      tok = tok->next();");
-        ccb.println("    }");
-        ccb.println("    if (tok != nullptr) jj_add_error_token(kind, i, loc);");
+        cb.println("  if (jj_rescan) {");
+        cb.println("    int i = 0; Token* tok = token;");
+        cb.println("    while (tok != nullptr && tok != jj_scanpos) {");
+        cb.println("      i++;");
+        cb.println("      tok = tok->next();");
+        cb.println("    }");
+        cb.println("    if (tok != nullptr) jj_add_error_token(kind, i, loc);");
         if (Options.getDebugLookahead()) {
-          ccb.println("  } else {");
-          ccb.println("    trace_scan(jj_scanpos, kind);");
+          cb.println("  } else {");
+          cb.println("    trace_scan(jj_scanpos, kind);");
         }
-        ccb.println("  }");
+        cb.println("  }");
       } else if (Options.getDebugLookahead()) {
-        ccb.println("  trace_scan(jj_scanpos, kind);");
+        cb.println("  trace_scan(jj_scanpos, kind);");
       }
-      ccb.println("  if (jj_scanpos->kind() != kind) {");
-      ccb.println("    return LA_SCAN_TOKEN_FAILURE;");
-      ccb.println("  }");
+      cb.println("  if (jj_scanpos->kind() != kind) {");
+      cb.println("    return LA_Scan_Token_Failure;");
+      cb.println("  }");
       // codeGen.genCodeLine(" if (jj_la == 0 && jj_scanpos == jj_lastpos)
       // throw jj_ls;");
-      ccb.println("  if (jj_la == 0 && jj_scanpos == jj_lastpos) {");
-      ccb.println("    return jj_done = LA_SCAN_TOKEN_FAILURE;");
-      ccb.println("  }");
-      ccb.println("  return LA_SCAN_TOKEN_SUCCESS;");
-      ccb.println("}");
-      ccb.println();
+      cb.println("  if (jj_la == 0 && jj_scanpos == jj_lastpos) {");
+      cb.println("    return jj_laok = LA_Scan_Token_Failure;");
+      cb.println("  }");
+      cb.println("  return LA_Scan_Token_Success;");
+      cb.println("}");
+      cb.println();
     }
-    ccb.println();
 
     /* getNextToken() */
-    ccb.println("/** Get the next Token. */");
-    ccb.generateMethodDefHeader("Token*", context.globals().cu_name, "getNextToken()");
-    ccb.println(" {");
+    cb.println("/** Get the next Token. */");
+    cb.generateMethodDefHeader("Token*", context.globals().cu_name, "getNextToken()");
+    cb.println(" {");
     if (Options.getCacheTokens()) {
-      ccb.println("  if ((token = jj_nt)->next() != nullptr) jj_nt = jj_nt->next();");
-      ccb.println("  else jj_nt = jj_nt->next() = token_source->getNextToken();");
+      cb.println("  if ((token = jj_nt)->next() != nullptr) jj_nt = jj_nt->next();");
+      cb.println("  else jj_nt = jj_nt->next() = token_source->getNextToken();");
     } else {
-      ccb.println("  if (token->next() != nullptr) token = token->next();");
-      ccb.println("  else token = token->next() = token_source->getNextToken();");
-      ccb.println("  jj_ntk = -1;");
+      cb.println("  if (token->next() != nullptr) token = token->next();");
+      cb.println("  else token = token->next() = token_source->getNextToken();");
+      cb.println("  jj_ntk = -1;");
     }
     if (Options.getErrorReporting()) {
-      ccb.println("  jj_gen++;");
+      cb.println("  jj_gen++;");
     }
     if (Options.getDebugParser()) {
-      ccb.println("  trace_consumed(token, \" (in getNextToken())\");");
+      cb.println("  trace_consumed(token, \" (in getNextToken())\");");
     }
-    ccb.println("  return token;");
-    ccb.println("}");
-    ccb.println();
+    cb.println("  return token;");
+    cb.println("}");
+    cb.println();
 
     /* getToken(int index) */
-    ccb.println("/** Get the specific Token. */");
-    ccb.generateMethodDefHeader("Token*", context.globals().cu_name, "getToken(int index)");
-    ccb.println(" {");
+    cb.println("/** Get the specific Token. */");
+    cb.generateMethodDefHeader("Token*", context.globals().cu_name, "getToken(int index)");
+    cb.println(" {");
     if (context.globals().lookaheadNeeded) {
-      ccb.println("  Token* t = jj_lookingAhead ? jj_scanpos : token;");
+      cb.println("  Token* t = jj_lookingAhead ? jj_scanpos : token;");
     } else {
-      ccb.println("  Token* t = token;");
+      cb.println("  Token* t = token;");
     }
-    ccb.println("  for (int i = 0; i < index; i++) {");
-    ccb.println("    if (t->next() != nullptr) t = t->next();");
-    ccb.println("    else t = t->next() = token_source->getNextToken();");
-    ccb.println("  }");
-    ccb.println("  return t;");
-    ccb.println("}");
-    ccb.println();
+    cb.println("  for (int i = 0; i < index; i++) {");
+    cb.println("    if (t->next() != nullptr) t = t->next();");
+    cb.println("    else t = t->next() = token_source->getNextToken();");
+    cb.println("  }");
+    cb.println("  return t;");
+    cb.println("}");
+    cb.println();
 
     if (!Options.getCacheTokens()) {
       /* jj_ntk_f() */
-      ccb.generateMethodDefHeader("int", context.globals().cu_name, "jj_ntk_f()");
-      ccb.println(" {");
+      cb.generateMethodDefHeader("int", context.globals().cu_name, "jj_ntk_f()");
+      cb.println(" {");
 
-      ccb.println("  if ((jj_nt=token->next()) == nullptr)");
-      ccb.println("    return (jj_ntk = (token->next() = token_source->getNextToken())->kind());");
-      ccb.println("  else");
-      ccb.println("    return (jj_ntk = jj_nt->kind());");
-      ccb.println("}");
-      ccb.println();
+      cb.println("  if ((jj_nt=token->next()) == nullptr)");
+      cb.println("    return (jj_ntk = (token->next() = token_source->getNextToken())->kind());");
+      cb.println("  else");
+      cb.println("    return (jj_ntk = jj_nt->kind());");
+      cb.println("}");
+      cb.println();
     }
 
-    ccb.switchToIncludeFile();
-    ccb.println("private:");
+    cb.switchToIncludeFile();
+    cb.println("private:");
     if (Options.getErrorReporting()) {
-      ccb.println("  int**   jj_expentries;");
-      ccb.println("  char*** jj_expentries_loc;");
-      ccb.println("  int     jj_kind = -1;");
-      ccb.println("  int*    jj_expentry;");
-      ccb.println("  char**  jj_expentry_loc;");
-      ccb.println("  int     MAX_NB_POS = 100;");
-      ccb.println();
+      cb.println("  int**   jj_expentries;");
+      cb.println("  char*** jj_expentries_loc;");
+      cb.println("  int     jj_kind = -1;");
+      cb.println("  int*    jj_expentry;");
+      cb.println("  char**  jj_expentry_loc;");
+      cb.println("  int     MAX_NB_POS = 100;");
+      cb.println();
       if (context.globals().jj2index != 0) {
-        ccb.switchToStaticsFile();
+        cb.switchToStaticsFile();
         // For now we don't support full ERROR_REPORTING in the C++ version.
         // ccb.println(" static int *jj_lasttokens = new int[100];");
         // ccb.println(" static int jj_endpos;");
-        ccb.println();
+        cb.println();
 
         /* jj_add_error_token(int kind, int pos) */
-        ccb.generateMethodDefHeader(
+        cb.generateMethodDefHeader(
             "void", context.globals().cu_name, "jj_add_error_token(int kind, int pos, char* loc)");
-        ccb.println(" {");
+        cb.println(" {");
         // For now we don't support full ERROR_REPORTING in the C++ version.
         /* java, to be translated
             ccb.println("    if (pos >= 100) {");
@@ -687,23 +693,23 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
             ccb.println("        jj_lasttokens[(jj_endpos = pos) - 1] = kind;");
             ccb.println("      }");
         */
-        ccb.println("}");
-        ccb.println();
+        cb.println("}");
+        cb.println();
       }
 
       /* generateParseException() */
-      ccb.switchToIncludeFile();
-      ccb.println("protected:");
-      ccb.println("  /** Generate ParseException. */");
-      ccb.generateMethodDefHeader("virtual void", context.globals().cu_name, "parseError()");
-      ccb.println(" {");
-      ccb.println(
+      cb.switchToIncludeFile();
+      cb.println("protected:");
+      cb.println("  /** Generate ParseException. */");
+      cb.generateMethodDefHeader("virtual void", context.globals().cu_name, "parseError()");
+      cb.println(" {");
+      cb.println(
           "  JJERR << JJWIDE(Parse error at:) << JJSPACE << token->beginLine() << JJWIDE(:)");
-      ccb.println("        << token->beginColumn() << JJSPACE << JJWIDE(after token:) << JJSPACE");
-      ccb.println(
+      cb.println("        << token->beginColumn() << JJSPACE << JJWIDE(after token:) << JJSPACE");
+      cb.println(
           "        << addUnicodeEscapes(token->image()) << JJWIDE(; encountered:) << JJSPACE");
-      ccb.println("        << addUnicodeEscapes(getToken(1)->image()) << std::endl;");
-      ccb.println("}");
+      cb.println("        << addUnicodeEscapes(getToken(1)->image()) << std::endl;");
+      cb.println("}");
       // For now we don't support full ERROR_REPORTING in the C++ version.
       //      ccb.generateMethodDefHeader(
       //          "ParseException", context.globals().cu_name, "generateParseException()");
@@ -765,15 +771,15 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
     } else {
       // no error reporting
       /* parseError() instead of generateParseException() */
-      ccb.println("protected:");
-      ccb.println("  /** Generate ParseException. */");
-      ccb.generateMethodDefHeader("virtual void", context.globals().cu_name, "parseError()");
-      ccb.println(" {");
-      ccb.println("  JJERR << JJWIDE(Parse error after token:) << JJSPACE");
-      ccb.println(
+      cb.println("protected:");
+      cb.println("  /** Generate ParseException. */");
+      cb.generateMethodDefHeader("virtual void", context.globals().cu_name, "parseError()");
+      cb.println(" {");
+      cb.println("  JJERR << JJWIDE(Parse error after token:) << JJSPACE");
+      cb.println(
           "        << addUnicodeEscapes(token->image()) << JJWIDE(; encountered:) << JJSPACE");
-      ccb.println("        << addUnicodeEscapes(getToken(1)->image()) << std::endl;");
-      ccb.println("}");
+      cb.println("        << addUnicodeEscapes(getToken(1)->image()) << std::endl;");
+      cb.println("}");
       // For now we don't support full ERROR_REPORTING in the C++ version.
       //      ccb.generateMethodDefHeader(
       //          "ParseException", context.globals().cu_name, "generateParseException()");
@@ -797,338 +803,1239 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
       */
       //      ccb.println("  }");
     }
-    ccb.println();
+    cb.println();
 
-    ccb.switchToIncludeFile();
-    ccb.println("private:");
+    cb.switchToIncludeFile();
+    cb.println("private:");
 
     /* indent & display */
 
     if (Options.getDebugParser() || Options.getDebugLookahead()) {
 
-      ccb.println("  /** Parser & lookahead tracing indentation. */");
-      ccb.println("  int trace_indent = 0;");
-      ccb.println();
+      cb.println("  /** Parser & lookahead tracing indentation. */");
+      cb.println("  int trace_indent = 0;");
+      cb.println();
 
-      ccb.println("  /** Display a token. */");
-      ccb.generateMethodDefHeader(
+      cb.println("  /** Display a token with a convenient format. */");
+      cb.generateMethodDefHeader(
           "JJString", context.globals().cu_name, "disp_token(const Token* t)");
-      ccb.println("  {");
-      ccb.println(
+      cb.println("  {");
+      cb.println(
           "    JJString s = \"<\" + std::to_string(t->kind()) + \" / \" + getTokenImage(t->kind());");
-      ccb.println(
+      cb.println(
           "    if (t->kind() != 0 && (getTokenImage(t->kind()) != (\"\\\"\" + t->image() + \"\\\"\"))) {");
-      ccb.println("      s += \" / \\\"\" + " + "addUnicodeEscapes(t->image()) + \"\\\"\";");
-      ccb.println("    }");
-      ccb.println("    s += \">\";");
-      ccb.println("    return s;");
-      ccb.println("  }");
-      ccb.println();
+      cb.println("      s += \" / \\\"\" + " + "addUnicodeEscapes(t->image()) + \"\\\"\";");
+      cb.println("    }");
+      cb.println("    s += \">\";");
+      cb.println("    return s;");
+      cb.println("  }");
+      cb.println();
     } // end if (Options.getDebugParser() || Options.getDebugLookahead())
 
     /* parser trace */
 
-    ccb.switchToIncludeFile();
-    ccb.println("  /** Parser tracing flag. */");
-    ccb.println("  bool trace = " + Options.getDebugParser() + ";");
-    ccb.println();
+    cb.switchToIncludeFile();
+    cb.println("  /** Parser tracing flag. */");
+    cb.println("  bool trace = " + Options.getDebugParser() + ";");
+    cb.println();
 
-    ccb.println("  /** Lookahead tracing flag. */");
-    ccb.println("  bool trace_la = " + Options.getDebugLookahead() + ";");
-    ccb.println();
+    cb.println("  /** Lookahead tracing flag. */");
+    cb.println("  bool trace_la = " + Options.getDebugLookahead() + ";");
+    cb.println();
 
-    ccb.println("public:");
-    ccb.generateMethodDefHeader("bool", context.globals().cu_name, "trace_enabled()");
-    ccb.println("  {");
-    ccb.println("  return trace;");
-    ccb.println("}");
-    ccb.println();
-    ccb.generateMethodDefHeader("bool", context.globals().cu_name, "trace_la_enabled()");
-    ccb.println(" {");
-    ccb.println("  return trace_la;");
-    ccb.println("}");
-    ccb.println();
+    cb.println("public:");
+    cb.generateMethodDefHeader("bool", context.globals().cu_name, "trace_enabled()");
+    cb.println(" { return trace; }");
+    cb.println();
+    cb.generateMethodDefHeader("bool", context.globals().cu_name, "trace_la_enabled()");
+    cb.println(" { return trace_la; }");
+    cb.println();
 
     if (Options.getDebugParser()) {
-      ccb.switchToIncludeFile();
-      ccb.generateMethodDefHeader("void", context.globals().cu_name, "enable_tracing()");
-      ccb.println(" {");
-      ccb.println("  trace = true;");
-      ccb.println("}");
-      ccb.println();
+      cb.switchToIncludeFile();
+      cb.generateMethodDefHeader("void", context.globals().cu_name, "enable_tracing()");
+      cb.println(" { trace = true; }");
+      cb.println();
 
-      ccb.switchToIncludeFile();
-      ccb.generateMethodDefHeader("void", context.globals().cu_name, "disable_tracing()");
-      ccb.println(" {");
-      ccb.println("  trace = false;");
-      ccb.println("}");
-      ccb.println();
+      cb.switchToIncludeFile();
+      cb.generateMethodDefHeader("void", context.globals().cu_name, "disable_tracing()");
+      cb.println(" { trace = false; }");
+      cb.println();
 
-      ccb.switchToIncludeFile();
-      ccb.generateMethodDefHeader("void", context.globals().cu_name, "trace_call(const char *s)");
-      ccb.println(" {");
-      ccb.println("  if (trace_enabled()) {");
-      ccb.println("    for (int no = 0; no < trace_indent; no++) { JJLOG << JJSPACE; }");
-      ccb.println(
-          "    JJLOG << JJWIDE(Call:) << JJSPACE << JJSPACE << JJSPACE << trace_indent"
-              + "          << JJWIDE(:) << JJSPACE << s << JJSPACE << JJWIDE((pa)) << std::endl;");
-      ccb.println("  }");
-      ccb.println("  trace_indent += 2;");
-      ccb.println("}");
-      ccb.println();
+      cb.switchToIncludeFile();
+      cb.generateMethodDefHeader("void", context.globals().cu_name, "trace_call(JJString s)");
+      cb.println(" {");
+      cb.println("  if (trace_enabled()) {");
+      cb.println("    for (int no = 0; no < trace_indent; no++) { JJLOG << JJSPACE; }");
+      cb.println("    JJLOG << JJWIDE(Call:) << JJSPACE << JJSPACE << JJSPACE << trace_indent;");
+      cb.println("    JJLOG << JJWIDE(:) << JJSPACE << s << JJSPACE << JJWIDE((pa)) << std::endl;");
+      cb.println("  }");
+      cb.println("  trace_indent += 2;");
+      cb.println("}");
+      cb.println();
 
-      ccb.switchToIncludeFile();
-      ccb.generateMethodDefHeader("void", context.globals().cu_name, "trace_return(const char *s)");
-      ccb.println(" {");
-      ccb.println("  trace_indent -= 2;");
-      ccb.println("  if (trace_enabled()) {");
-      ccb.println("    for (int no = 0; no < trace_indent; no++) { JJLOG << JJSPACE; }");
-      ccb.println(
-          "    JJLOG << JJWIDE(Return:) << JJSPACE << trace_indent"
-              + "          << JJWIDE(:) << JJSPACE << s << JJSPACE << JJWIDE((pa)) << std::endl;");
-      ccb.println("  }");
-      ccb.println("}");
-      ccb.println();
+      cb.switchToIncludeFile();
+      cb.generateMethodDefHeader("void", context.globals().cu_name, "trace_return(JJString s)");
+      cb.println(" {");
+      cb.println("  trace_indent -= 2;");
+      cb.println("  if (trace_enabled()) {");
+      cb.println("    for (int no = 0; no < trace_indent; no++) { JJLOG << JJSPACE; }");
+      cb.println("    JJLOG << JJWIDE(Return:) << JJSPACE << trace_indent;");
+      cb.println("    JJLOG << JJWIDE(:) << JJSPACE << s << JJSPACE << JJWIDE((pa)) << std::endl;");
+      cb.println("  }");
+      cb.println("}");
+      cb.println();
 
-      ccb.switchToIncludeFile();
-      ccb.generateMethodDefHeader(
+      cb.switchToIncludeFile();
+      cb.generateMethodDefHeader(
           "void",
           context.globals().cu_name,
           "trace_consumed(const Token* token, const char* where)");
-      ccb.println(" {");
-      ccb.println("  if (trace_enabled()) {");
-      ccb.println("    for (int no = 0; no < trace_indent; no++) { JJLOG << JJSPACE; }");
+      cb.println(" {");
+      cb.println("  if (trace_enabled()) {");
+      cb.println("    for (int no = 0; no < trace_indent; no++) { JJLOG << JJSPACE; }");
 
-      ccb.println("    JJLOG << JJWIDE(Consumed token:) << JJSPACE << disp_token(token);");
+      cb.println("    JJLOG << JJWIDE(Consumed token:) << JJSPACE << disp_token(token);");
       if (Options.getKeepLineColumn()) {
-        ccb.println(
+        cb.println(
             "    JJLOG << JJCOMMA << JJSPACE << JJWIDE(@) << JJSPACE << "
                 + "token->beginLine() << JJWIDE(:) << token->beginColumn()");
       }
-      ccb.println("    JJLOG << where << JJSPACE << JJWIDE((pa)) << std::endl;");
-      ccb.println("  }");
-      ccb.println("}");
-      ccb.println();
+      cb.println("    JJLOG << where << JJSPACE << JJWIDE((pa)) << std::endl;");
+      cb.println("  }");
+      cb.println("}");
+      cb.println();
 
-      ccb.switchToIncludeFile();
-      ccb.generateMethodDefHeader(
+      cb.switchToIncludeFile();
+      cb.generateMethodDefHeader(
           "void",
           context.globals().cu_name,
           "trace_expected(const int k1, const Token* t2, const char* loc)");
-      ccb.println(" {");
-      ccb.println("  if (trace_enabled()) {");
-      ccb.println("    for (int no = 0; no < trace_indent; no++) { JJLOG << JJSPACE; }");
+      cb.println(" {");
+      cb.println("  if (trace_enabled()) {");
+      cb.println("    for (int no = 0; no < trace_indent; no++) { JJLOG << JJSPACE; }");
 
-      ccb.println("    JJLOG << JJWIDE(Expected token: <) << k1;");
-      ccb.println("    if (k1 >= 0) JJLOG << JJSPACE << JJWIDE(/) << JJSPACE << tokenImage[k1];");
-      ccb.println("    JJLOG << JJWIDE(>);");
+      cb.println("    JJLOG << JJWIDE(Expected token: <) << k1;");
+      cb.println("    if (k1 >= 0) {");
+      cb.println("      JJLOG << JJSPACE << JJWIDE(/) << JJSPACE << getTokenImage(k1);");
+      cb.println("    }");
+      cb.println("    JJLOG << JJWIDE(>);");
       if (Options.getKeepLineColumn()) {
-        ccb.println("    JJLOG << JJCOMMA << JJSPACE << JJWIDE(@) << JJSPACE << loc << JJCOMMA");
+        cb.println("    JJLOG << JJCOMMA << JJSPACE << JJWIDE(@) << JJSPACE << loc << JJCOMMA");
       }
-      ccb.println("    JJLOG << JJSPACE << JJWIDE(not matched by consumed token) << JJSPACE");
-      ccb.println("          << disp_token(t2) << JJSPACE << JJWIDE((pa)) << std::endl;");
-      ccb.println("  }");
-      ccb.println("}");
-      ccb.println();
+      cb.println("    JJLOG << JJSPACE << JJWIDE(not matched by consumed token) << JJSPACE");
+      cb.println("          << disp_token(t2) << JJSPACE << JJWIDE((pa)) << std::endl;");
+      cb.println("  }");
+      cb.println("}");
+      cb.println();
 
     } else {
       // no debug parser
-      ccb.switchToIncludeFile();
-      ccb.generateMethodDefHeader("void", context.globals().cu_name, "enable_tracing()");
-      ccb.println(" {");
-      ccb.println("}");
-      ccb.switchToIncludeFile();
-      ccb.generateMethodDefHeader("void", context.globals().cu_name, "disable_tracing()");
-      ccb.println(" {");
-      ccb.println("}");
-      ccb.println();
+      cb.switchToIncludeFile();
+      cb.generateMethodDefHeader("void", context.globals().cu_name, "enable_tracing()");
+      cb.println(" {}");
+      cb.println();
+      cb.switchToIncludeFile();
+      cb.generateMethodDefHeader("void", context.globals().cu_name, "disable_tracing()");
+      cb.println(" {}");
+      cb.println();
     }
 
     /* lookahead trace */
 
     if (Options.getDebugLookahead()) {
-      ccb.switchToIncludeFile();
-      ccb.generateMethodDefHeader("void", context.globals().cu_name, "enable_la_tracing()");
-      ccb.println(" {");
-      ccb.println("  trace_la = true;");
-      ccb.println("}");
-      ccb.println();
+      cb.switchToIncludeFile();
+      cb.generateMethodDefHeader("void", context.globals().cu_name, "enable_la_tracing()");
+      cb.println(" { trace_la = true; }");
+      cb.println();
 
-      ccb.switchToIncludeFile();
-      ccb.generateMethodDefHeader("void", context.globals().cu_name, "disable_la_tracing()");
-      ccb.println(" {");
-      ccb.println("  trace_la = false;");
-      ccb.println("}");
-      ccb.println();
+      cb.switchToIncludeFile();
+      cb.generateMethodDefHeader("void", context.globals().cu_name, "disable_la_tracing()");
+      cb.println(" { trace_la = false; }");
+      cb.println();
 
-      ccb.switchToIncludeFile();
-      ccb.generateMethodDefHeader(
-          "void", context.globals().cu_name, "trace_la_call(const char *s)");
-      ccb.println(" {");
-      ccb.println("  if (trace_la_enabled()) {");
-      ccb.println("    for (int no = 0; no < trace_indent; no++) { JJLOG << JJSPACE; }");
-      ccb.println(
-          "    JJLOG << JJWIDE(Call:) << JJSPACE << JJSPACE << JJSPACE << trace_indent"
-              + "          << JJWIDE(:) << JJSPACE << s << JJSPACE << JJWIDE((la)) << std::endl;");
-      ccb.println("  }");
-      ccb.println("  trace_indent += 2;");
-      ccb.println("}");
-      ccb.println();
+      cb.switchToIncludeFile();
+      cb.generateMethodDefHeader("void", context.globals().cu_name, "trace_la_call(JJString s)");
+      cb.println(" {");
+      cb.println("  if (trace_la_enabled()) {");
+      cb.println("    for (int no = 0; no < trace_indent; no++) { JJLOG << JJSPACE; }");
+      cb.println("    JJLOG << JJWIDE(Call:) << JJSPACE << JJSPACE << JJSPACE << trace_indent;");
+      cb.println("    JJLOG << JJWIDE(:) << JJSPACE << s << JJSPACE << JJWIDE((la)) << std::endl;");
+      cb.println("  }");
+      cb.println("  trace_indent += 2;");
+      cb.println("}");
+      cb.println();
 
-      ccb.switchToIncludeFile();
-      ccb.generateMethodDefHeader(
-          "void", context.globals().cu_name, "trace_la_return(const char *s)");
-      ccb.println(" {");
-      ccb.println("  trace_indent -= 2;");
-      ccb.println("  if (trace_la_enabled()) {");
-      ccb.println("    for (int no = 0; no < trace_indent; no++) { JJLOG << JJSPACE; }");
-      ccb.println(
-          "    JJLOG << JJWIDE(Return:) << JJSPACE << trace_indent"
-              + "          << JJWIDE(:) << JJSPACE << s << JJSPACE << JJWIDE((la)) << std::endl;");
-      ccb.println("  }");
-      ccb.println("}");
-      ccb.println();
+      cb.switchToIncludeFile();
+      cb.generateMethodDefHeader("void", context.globals().cu_name, "trace_la_return(JJString s)");
+      cb.println(" {");
+      cb.println("  trace_indent -= 2;");
+      cb.println("  if (trace_la_enabled()) {");
+      cb.println("    for (int no = 0; no < trace_indent; no++) { JJLOG << JJSPACE; }");
+      cb.println("    JJLOG << JJWIDE(Return:) << JJSPACE << trace_indent;");
+      cb.println("    JJLOG << JJWIDE(:) << JJSPACE << s << JJSPACE << JJWIDE((la)) << std::endl;");
+      cb.println("  }");
+      cb.println("}");
+      cb.println();
 
-      ccb.switchToIncludeFile();
-      ccb.generateMethodDefHeader(
+      cb.switchToIncludeFile();
+      cb.generateMethodDefHeader(
           "void", context.globals().cu_name, "trace_scan(const Token* t1, int k2)");
-      ccb.println(" {");
-      ccb.println("  if (trace_la_enabled()) {");
-      ccb.println("    for (int no = 0; no < trace_indent; no++) { JJLOG << JJSPACE; }");
-      ccb.println(
-          "    JJLOG << JJWIDE(Visited token: (la=) << jj_la << JJWIDE():) << JJSPACE << disp_token(t1);");
+      cb.println(" {");
+      cb.println("  if (trace_la_enabled()) {");
+      cb.println("    for (int no = 0; no < trace_indent; no++) { JJLOG << JJSPACE; }");
+      cb.println("    JJLOG << JJWIDE(Visited token) << JJSPACE << JJLPAR << JJWIDE(la=)");
+      cb.println("          << jj_la << JJRPAR << JJWIDE(:) << JJSPACE << disp_token(t1);");
       if (Options.getKeepLineColumn()) {
-        ccb.println(
+        cb.println(
             "    JJLOG << JJCOMMA << JJSPACE << JJWIDE(at) << JJSPACE << t1->beginLine() << JJWIDE(:) << t1->beginColumn();");
       }
-      ccb.println(
+      cb.println(
           "    JJLOG << JJWIDE(; Expected token: <) << k2 << JJSPACE << JJWIDE(/) << JJSPACE");
-      ccb.println(
+      cb.println(
           "          << addUnicodeEscapes("
-              + getTokenLabels()
+              + getTokenImage()
               + "[k2]) << JJWIDE(> (la)) << std::endl;");
-      ccb.println("  }");
-      ccb.println("}");
-      ccb.println();
+      cb.println("  }");
+      cb.println("}");
+      cb.println();
 
     } else {
       // no debug lookahead
-      ccb.switchToIncludeFile();
-      ccb.generateMethodDefHeader("void", context.globals().cu_name, "enable_la_tracing()");
-      ccb.println(" {");
-      ccb.println("}");
-      ccb.switchToIncludeFile();
-      ccb.generateMethodDefHeader("void", context.globals().cu_name, "disable_la_tracing()");
-      ccb.println(" {");
-      ccb.println("}");
-      ccb.println();
+      cb.switchToIncludeFile();
+      cb.generateMethodDefHeader("void", context.globals().cu_name, "enable_la_tracing()");
+      cb.println(" {");
+      cb.println("}");
+      cb.switchToIncludeFile();
+      cb.generateMethodDefHeader("void", context.globals().cu_name, "disable_la_tracing()");
+      cb.println(" {");
+      cb.println("}");
+      cb.println();
     }
 
     if ((context.globals().jj2index != 0) && Options.getErrorReporting()) {
-      ccb.generateMethodDefHeader("void", context.globals().cu_name, "jj_rescan_token()");
-      ccb.println(" {");
-      ccb.println("  jj_rescan = true;");
-      ccb.println("  for (int i = 0; i < " + context.globals().jj2index + "; i++) {");
+      cb.generateMethodDefHeader("void", context.globals().cu_name, "jj_rescan_token()");
+      cb.println(" {");
+      cb.println("  jj_rescan = true;");
+      cb.println("  for (int i = 0; i < " + context.globals().jj2index + "; i++) {");
       // codeGen.genCodeLine(" try {");
-      ccb.println("    JJCalls *p = &jj_2_rtns[i];");
-      ccb.println("    do {");
-      ccb.println("      if (p->gen > jj_gen) {");
-      ccb.println("        jj_la = p->arg;");
-      ccb.println("        jj_lastpos = jj_scanpos = p->first;");
-      ccb.println("        switch (i) {");
+      cb.println("    JJCalls *p = &jj_2_rtns[i];");
+      cb.println("    do {");
+      cb.println("      if (p->gen > jj_gen) {");
+      cb.println("        jj_la = p->arg;");
+      cb.println("        jj_lastpos = jj_scanpos = p->first;");
+      cb.println("        switch (i) {");
       for (int i = 0; i < context.globals().jj2index; i++) {
-        ccb.println("          case " + i + ":");
-        ccb.println("            jj_3_" + (i + 1) + "();");
-        ccb.println("            break;");
+        cb.println("          case " + i + ":");
+        cb.println("            jj_3_" + (i + 1) + "();");
+        cb.println("            break;");
       }
-      ccb.println("        }");
-      ccb.println("      }");
-      ccb.println("      p = p->next;");
-      ccb.println("    } while (p != nullptr);");
+      cb.println("        }");
+      cb.println("      }");
+      cb.println("      p = p->next;");
+      cb.println("    } while (p != nullptr);");
       // codeGen.genCodeLine(" } catch(LookaheadSuccess ls) { }");
-      ccb.println("  }");
-      ccb.println("  jj_rescan = false;");
-      ccb.println("}");
-      ccb.println();
+      cb.println("  }");
+      cb.println("  jj_rescan = false;");
+      cb.println("}");
+      cb.println();
 
-      ccb.generateMethodDefHeader("void", context.globals().cu_name, "jj_save(int index, int xla)");
-      ccb.println(" {");
-      ccb.println("  JJCalls *p = &jj_2_rtns[index];");
-      ccb.println("  while (p->gen > jj_gen) {");
-      ccb.println("    if (p->next == nullptr) {");
-      ccb.println("      p = p->next = new JJCalls();");
-      ccb.println("      break;");
-      ccb.println("    }");
-      ccb.println("    p = p->next;");
-      ccb.println("  }");
-      ccb.println("  p->gen = jj_gen + xla - jj_la;");
-      ccb.println("  p->first = token;");
-      ccb.println("  p->arg = xla;");
-      ccb.println("}");
-      ccb.println();
+      cb.generateMethodDefHeader("void", context.globals().cu_name, "jj_save(int index, int xla)");
+      cb.println(" {");
+      cb.println("  JJCalls *p = &jj_2_rtns[index];");
+      cb.println("  while (p->gen > jj_gen) {");
+      cb.println("    if (p->next == nullptr) {");
+      cb.println("      p = p->next = new JJCalls();");
+      cb.println("      break;");
+      cb.println("    }");
+      cb.println("    p = p->next;");
+      cb.println("  }");
+      cb.println("  p->gen = jj_gen + xla - jj_la;");
+      cb.println("  p->first = token;");
+      cb.println("  p->arg = xla;");
+      cb.println("}");
+      cb.println();
     }
 
     if (context.globals().cu_from_insertion_point_2.size() != 0) {
       Token t = null;
-      ccb.printTokenSetup((context.globals().cu_from_insertion_point_2.get(0)));
+      cb.printTokenSetup((context.globals().cu_from_insertion_point_2.get(0)));
       for (final Iterator<Token> it = context.globals().cu_from_insertion_point_2.iterator();
           it.hasNext(); ) {
         t = it.next();
-        ccb.printToken(t);
+        cb.printToken(t);
       }
-      ccb.printTrailingComments(t);
-      ccb.println();
+      cb.printTrailingComments(t);
+      cb.println();
     }
 
     // in the include file close the class signature
-    ccb.switchToIncludeFile();
+    cb.switchToIncludeFile();
 
     // copy other stuff
     Token t1 = context.globals().otherLanguageDeclTokenBeg;
     final Token t2 = context.globals().otherLanguageDeclTokenEnd;
     while (t1 != t2) {
-      ccb.printToken(t1);
+      cb.printToken(t1);
       t1 = t1.next;
     }
 
     if (context.globals().jjtreeGenerated) {
-      ccb.println("  JJT" + context.globals().cu_name + "State jjtree;");
-      ccb.println();
+      cb.println("  JJT" + context.globals().cu_name + "State jjtree;");
+      cb.println();
     }
 
-    ccb.println("private:");
-    ccb.println("  bool jj_done; // true when the last level lookahead succeeds");
+    cb.println("private:");
+    cb.println("  /** True when the last scan matches, thus making the lookahead successful. */");
+    cb.println("  bool jj_laok;");
 
-    ccb.println();
-    ccb.println("};");
+    cb.println();
+    cb.println("  /** Defines a custom (and internal) exception. */");
+    cb.println("  class LookaheadSuccess : public std::exception {");
+    cb.println("    virtual const char* what() const throw() {");
+    cb.println("      return \"Look ahead has succeeded\";");
+    cb.println("    }");
+    cb.println("  } jj_ls;");
+
+    cb.println();
+    cb.println("};");
   }
 
-  void printInclude(final String userInclude) {
+  private void printInclude(final String userInclude) {
     if (userInclude != null && userInclude.length() > 0) {
       if (userInclude.charAt(0) == '<') {
-        ccb.println("#include " + userInclude + " // user defined option");
+        cb.println("#include " + userInclude + " // user defined option");
       } else {
-        ccb.println("#include \"" + userInclude + "\" // user defined option");
+        cb.println("#include \"" + userInclude + "\" // user defined option");
       }
     }
+  }
+
+  private static String getTokenImage() {
+    return addTokenNamespace("tokenImage");
+  }
+
+  private String getTokenType() {
+    String type = "Token";
+    if (Options.getTokenClass().isEmpty()) {
+      type = "Token";
+    } else {
+      type = Options.getTokenClass();
+    }
+
+    if (!Options.getTokenNamespace().isEmpty()) {
+      type = Options.getTokenNamespace() + "::" + type;
+    }
+    return type;
   }
 
   @Override
   public void finish(final CodeGeneratorSettings settings, final ParserData parserData) {
     if (Options.stringValue(Options.UO__NAMESPACE).length() > 0) {
-      ccb.println(Options.stringValue("NAMESPACE_CLOSE"));
-      ccb.println("#endif");
-      ccb.switchToMainFile();
-      ccb.println(Options.stringValue("NAMESPACE_CLOSE"));
+      cb.println(Options.stringValue("NAMESPACE_CLOSE"));
+      cb.println("#endif");
+      cb.switchToMainFile();
+      cb.println(Options.stringValue("NAMESPACE_CLOSE"));
     } else {
-      ccb.println("#endif");
+      cb.println("#endif");
     }
 
     try {
-      ccb.close();
+      cb.close();
     } catch (final IOException e) {
       throw new Error(e);
     }
+  }
+
+  private void build() {
+    NormalProduction p;
+    CppCodeProduction cp;
+
+    cb.switchToIncludeFile();
+    cb.println("  /* Lookahead phases and token scan return codes. */");
+    cb.println();
+    cb.println("#define LA_Phase2_Failure false");
+    cb.println("#define LA_Phase2_Success true");
+    cb.println("#define LA_Phase3_Failure true");
+    cb.println("#define LA_Phase3_Success false");
+    cb.println("#define LA_Scan_Token_Failure true");
+    cb.println("#define LA_Scan_Token_Success false");
+    cb.println();
+
+    cb.switchToMainFile();
+    for (final Iterator<NormalProduction> prodIterator =
+            context.globals().bnfproductions.iterator();
+        prodIterator.hasNext(); ) {
+      p = prodIterator.next();
+      if (p instanceof CppCodeProduction) {
+        cp = (CppCodeProduction) p;
+
+        final StringBuffer sig = new StringBuffer();
+        String ret, params;
+        Token t = null;
+
+        p.getLhs();
+
+        for (final Token element : p.getReturnTypeTokens()) {
+          t = element;
+          CodeBuilder.toString(t);
+          sig.append(t.toString());
+          sig.append(" ");
+        }
+
+        if (t != null) {
+          cb.getTrailingComments(t);
+        }
+        ret = sig.toString();
+
+        sig.setLength(0);
+        sig.append("(");
+        if (p.getParameterListTokens().size() != 0) {
+          cb.printTokenSetup(p.getParameterListTokens().get(0));
+          for (final Iterator<Token> it = p.getParameterListTokens().iterator(); it.hasNext(); ) {
+            t = it.next();
+            sig.append(CodeBuilder.toString(t));
+          }
+          sig.append(cb.getTrailingComments(t));
+        }
+        sig.append(")");
+        params = sig.toString();
+
+        // For now, just ignore comments
+        cb.generateMethodDefHeader(
+            ret, context.globals().cu_name, p.getLhs() + params, sig.toString());
+        cb.println(" {");
+        if (Options.getDebugParser()) {
+          cb.println();
+          cb.println(
+              "    JJEnter<std::function<void()>> jjenter([this]() { trace_call  (\""
+                  + cb.escapeToUnicode(cp.getLhs())
+                  + "\"); });");
+          cb.println(
+              "    JJExit <std::function<void()>> jjexit ([this]() { trace_return(\""
+                  + cb.escapeToUnicode(cp.getLhs())
+                  + "\"); });");
+          cb.println("    try {");
+        }
+        if (cp.getCodeTokens().size() != 0) {
+          cb.printTokenSetup(cp.getCodeTokens().get(0));
+          cb.printTokenList(cp.getCodeTokens());
+        }
+        cb.println();
+        if (Options.getDebugParser()) {
+          cb.println("    } catch(...) {");
+          cb.println("    }");
+        }
+        cb.println("  }");
+        cb.println();
+      } else if (p instanceof JavaCodeProduction) {
+        context.errors().semantic_error("Cannot use JAVACODE productions with C++ output (yet).");
+        continue;
+      } else {
+        buildPhase1Routine((BNFProduction) p);
+      }
+    }
+
+    cb.switchToIncludeFile();
+    for (final Lookahead element : phase2list) {
+      buildPhase2Routine(element);
+    }
+
+    int phase3index = 0;
+
+    while (phase3index < phase3list.size()) {
+      for (; phase3index < phase3list.size(); phase3index++) {
+        setupPhase3Builds(phase3list.get(phase3index));
+      }
+    }
+
+    for (final Enumeration<Phase3Data> enumeration = phase3table.elements();
+        enumeration.hasMoreElements(); ) {
+      buildPhase3Routine(enumeration.nextElement(), false, "");
+    }
+    cb.switchToMainFile();
+  }
+
+  /*
+   * The phase 1 routines generates their output into String's and dumps these String's once for
+   *  each method.
+   * These String's contain the special characters '\u0001' to indicate a positive indent,
+   *  and '\u0002' to indicate a negative indent.
+   * '\n' is used to indicate a line terminator.
+   * The characters '\u0003' and '\u0004' are used to delineate portions of text where '\n's
+   *  should not be followed by an indentation.
+   */
+
+  private int indentamt;
+
+  private void buildPhase1Routine(final BNFProduction p) {
+    Token t = p.getReturnTypeTokens().get(0);
+    boolean voidReturn = false;
+    if (t.kind == JavaCCParserConstants.VOID) {
+      voidReturn = true;
+    }
+    String error_ret = null;
+    error_ret = generateCPPMethodheader(p, t);
+
+    cb.print(" {");
+
+    if ((Options.getStopOnFirstError() && (error_ret != null))
+        || ((Options.getDepthLimit() > 0) && !voidReturn)) {
+      cb.print(error_ret);
+    } else {
+      error_ret = null;
+    }
+
+    genStackCheck(voidReturn);
+
+    indentamt = 2;
+    String fmtProd = "";
+    if (Options.getDebugParser()) {
+      fmtProd = fmtProd(p);
+      cb.println();
+      cb.println(
+          "  JJEnter<std::function<void()>> jjenter([this]() { trace_call  (\""
+              + fmtProd
+              + "\"); });");
+      cb.println(
+          "  JJExit <std::function<void()>> jjexit ([this]() { trace_return(\""
+              + fmtProd
+              + "\"); });");
+      //      cb.print("  try {");
+      //      if (DCT) cb.print(" /*bp1r-a*/");
+      //      indentamt += 2;
+    }
+
+    if (!Options.getIgnoreActions() && (p.getDeclarationTokens().size() != 0)) {
+      cb.println();
+      cb.printTokenSetup(p.getDeclarationTokens().get(0));
+      for (final Iterator<Token> it = p.getDeclarationTokens().iterator(); it.hasNext(); ) {
+        t = it.next();
+        cb.printToken(t);
+      }
+      cb.printTrailingComments(t);
+    }
+
+    final String code = phase1ExpansionGen(p.getExpansion());
+    dumpFormattedString(code);
+    cb.println();
+
+    if (p.isJumpPatched() && !voidReturn) {
+      cb.println("  throw \"Missing return statement in function\";");
+    }
+    //    if (Options.getDebugParser()) {
+    //      cb.println("  } catch(...) {");
+    //      cb.println("  }");
+    //      indentamt -= 2;
+    //    }
+    if (!voidReturn) {
+      cb.println("assert(false);");
+    }
+
+    if (error_ret != null) {
+      cb.println("\n#undef __ERROR_RET__\n");
+    }
+    cb.println("}");
+    cb.println();
+  }
+
+  /** Print method header and return the ERROR_RETURN string. */
+  private String generateCPPMethodheader(final BNFProduction p, Token t) {
+    final StringBuffer sig = new StringBuffer();
+    String ret, params;
+
+    final String method_name = p.getLhs();
+    boolean void_ret = false;
+    boolean ptr_ret = false;
+
+    cb.printTokenSetup(t);
+    cb.getLeadingComments(t);
+    sig.append(t.image);
+    if (t.kind == JavaCCParserConstants.VOID) {
+      void_ret = true;
+    }
+    if (t.kind == JavaCCParserConstants.STAR) {
+      ptr_ret = true;
+    }
+
+    for (int i = 1; i < p.getReturnTypeTokens().size(); i++) {
+      t = p.getReturnTypeTokens().get(i);
+      sig.append(CodeBuilder.toString(t));
+      if (t.kind == JavaCCParserConstants.VOID) {
+        void_ret = true;
+      }
+      if (t.kind == JavaCCParserConstants.STAR) {
+        ptr_ret = true;
+      }
+    }
+
+    cb.getTrailingComments(t);
+    ret = sig.toString();
+
+    sig.setLength(0);
+    sig.append("(");
+    if (p.getParameterListTokens().size() != 0) {
+      cb.printTokenSetup(p.getParameterListTokens().get(0));
+      for (final Iterator<Token> it = p.getParameterListTokens().iterator(); it.hasNext(); ) {
+        t = it.next();
+        sig.append(CodeBuilder.toString(t));
+      }
+      sig.append(cb.getTrailingComments(t));
+    }
+    sig.append(")");
+    params = sig.toString();
+
+    // For now, just ignore comments
+    cb.generateMethodDefHeader(ret, context.globals().cu_name, p.getLhs() + params, sig.toString());
+
+    // Generate a default value for error return.
+    String default_return;
+    if (ptr_ret) {
+      default_return = "NULL";
+    } else if (void_ret) {
+      default_return = "";
+    } else {
+      default_return = "0"; // 0 converts to most (all?) basic types.
+    }
+
+    final StringBuffer ret_val = new StringBuffer("\n#if !defined ERROR_RET_" + method_name + "\n");
+    ret_val.append("#define ERROR_RET_" + method_name + " " + default_return + "\n");
+    ret_val.append("#endif\n");
+    ret_val.append("#define __ERROR_RET__ ERROR_RET_" + method_name + "\n");
+
+    return ret_val.toString();
+  }
+
+  private static String fmtProd(final NormalProduction p) {
+    return p == null
+        ? "?-?"
+        : (JavaCCGlobals.addUnicodeEscapes(p.getLhs()) + "-" + p.getLine()
+        //        + ":" + p.getColumn()
+        );
+  }
+
+  private int gensymindex = 0;
+
+  private String phase1ExpansionGen(final Expansion e) {
+    String retval = "";
+    Token t = null;
+    Lookahead[] conds;
+    String[] actions;
+    if (e instanceof RegularExpression) {
+      final RegularExpression e_nrw = (RegularExpression) e;
+      retval += "\n";
+      if (e_nrw.lhsTokens.size() != 0) {
+        cb.printTokenSetup(e_nrw.lhsTokens.get(0));
+        for (final Iterator<Token> it = e_nrw.lhsTokens.iterator(); it.hasNext(); ) {
+          t = it.next();
+          retval += CodeBuilder.toString(t);
+        }
+        retval += cb.getTrailingComments(t);
+        retval += " = ";
+      }
+      if (e_nrw.label.equals("")) {
+        final Object label = context.globals().names_of_tokens.get(Integer.valueOf(e_nrw.ordinal));
+        if (label != null) {
+          retval += "jj_consume_token(" + addTokenNamespace((String) label);
+        } else {
+          retval += "jj_consume_token(" + e_nrw.ordinal;
+        }
+      } else {
+        retval += "jj_consume_token(" + addTokenNamespace(e_nrw.label);
+      }
+      if (Options.getErrorReporting()) {
+        retval += ", \"" + e.getLine() + ":" + e.getColumn() + "\"";
+      }
+      retval += e_nrw.rhsToken == null ? ");" : ")->" + e_nrw.rhsToken.image + ";";
+      if (DCT) {
+        retval += " /*p1eg-re*/";
+      }
+
+      if (Options.getStopOnFirstError()) {
+        retval += "\n    { if (hasError) { return __ERROR_RET__; } }\n";
+      }
+
+    } else if (e instanceof NonTerminal) {
+      final NonTerminal e_nrw = (NonTerminal) e;
+      retval += "\n";
+      if (e_nrw.getLhsTokens().size() != 0) {
+        cb.printTokenSetup(e_nrw.getLhsTokens().get(0));
+        for (final Iterator<Token> it = e_nrw.getLhsTokens().iterator(); it.hasNext(); ) {
+          t = it.next();
+          retval += CodeBuilder.toString(t);
+        }
+        retval += cb.getTrailingComments(t);
+        retval += " = ";
+      }
+      retval += e_nrw.getName() + "(";
+      if (e_nrw.getArgumentTokens().size() != 0) {
+        cb.printTokenSetup(e_nrw.getArgumentTokens().get(0));
+        for (final Iterator<Token> it = e_nrw.getArgumentTokens().iterator(); it.hasNext(); ) {
+          t = it.next();
+          retval += CodeBuilder.toString(t);
+        }
+        retval += cb.getTrailingComments(t);
+      }
+      if (DCT) {
+        retval += " /*p1eg-nt*/ ";
+      }
+      retval += ");";
+      if (Options.getStopOnFirstError()) {
+        retval += "\n    { if (hasError) { return __ERROR_RET__; } }\n";
+      }
+
+    } else if (e instanceof Action) {
+      final Action e_nrw = (Action) e;
+      if (!Options.getIgnoreActions() && (e_nrw.getActionTokens().size() != 0)) {
+        if (DCT) {
+          retval += " /*p1eg-ac*/";
+        }
+        retval += "\n "; // half indent for distinguishing user actions from generated code
+        // this formatting is ok for an action of a single line, not of multiple lines
+        String code = "";
+        cb.printTokenSetup(e_nrw.getActionTokens().get(0));
+        for (final Iterator<Token> it = e_nrw.getActionTokens().iterator(); it.hasNext(); ) {
+          t = it.next();
+          code += CodeBuilder.toString(t);
+        }
+        code += cb.getTrailingComments(t);
+        retval += code.trim();
+      }
+
+    } else if (e instanceof Choice) {
+      final Choice e_nrw = (Choice) e;
+      final int nbChoices = e_nrw.getChoices().size();
+      conds = new Lookahead[nbChoices];
+      actions = new String[nbChoices + 1];
+      for (int i = 0; i < e_nrw.getChoices().size(); i++) {
+        final Sequence nestedSeq = (Sequence) e_nrw.getChoices().get(i);
+        actions[i] = phase1ExpansionGen(nestedSeq);
+        conds[i] = (Lookahead) nestedSeq.units.get(0);
+      }
+      actions[nbChoices] =
+          "\n"
+              + "jj_consume_token(-1, \"*loc*\");\n"
+              + "errorHandler->parseError(token, getToken(1), __FUNCTION__), hasError = true;"
+              + (Options.getStopOnFirstError() ? "\nreturn __ERROR_RET__;" : "");
+      // In previous line, the "errorHandler->parseError" never "throws" an exception
+      //  since the evaluation of jj_consume_token(-1) causes a parseError to be "thrown" first.
+      retval = buildLookaheadChecker(conds, actions, e);
+
+    } else if (e instanceof Sequence) {
+      final Sequence e_nrw = (Sequence) e;
+      // We skip the first element in the following iteration since it is the Lookahead object.
+      for (int i = 1; i < e_nrw.units.size(); i++) {
+        // For C++, since we are not using exceptions, we will protect all the
+        //  expansion choices with if (!hasError)
+        boolean wrap_in_block = false;
+        if (!context.globals().jjtreeGenerated) {
+          // for the last one, if it's an action, we will not protect it.
+          final Expansion elem = e_nrw.units.get(i);
+          if (!(elem instanceof Action)
+              || !(e.parent instanceof BNFProduction)
+              || (i != (e_nrw.units.size() - 1))) {
+            wrap_in_block = true;
+            retval += "\nif (!hasError) {\u0001";
+            if (DCT) {
+              retval += " /*p1eg-sq-1*/";
+            }
+          }
+        }
+        retval += phase1ExpansionGen(e_nrw.units.get(i));
+        if (wrap_in_block) {
+          retval += "\u0002\n}";
+          if (DCT) {
+            retval += " /*p1eg-sq-2*/";
+          }
+        }
+      }
+
+    } else if (e instanceof OneOrMore) {
+      final OneOrMore e_nrw = (OneOrMore) e;
+      final Expansion nested_e = e_nrw.getExpansion();
+      Lookahead la;
+      if (nested_e instanceof Sequence) {
+        la = (Lookahead) ((Sequence) nested_e).units.get(0);
+      } else {
+        la = new Lookahead();
+        la.setAmount(Options.getLookahead());
+        la.setLaExpansion(nested_e);
+      }
+      if (DCT) {
+        retval += " /*p1eg-1n-1*/";
+      }
+      retval += "\n";
+      final int labelIndex = ++gensymindex;
+      retval += "while (!hasError) {\u0001";
+      retval += phase1ExpansionGen(nested_e);
+      conds = new Lookahead[1];
+      conds[0] = la;
+      actions = new String[2];
+      actions[0] = "";
+      actions[1] = "\ngoto end_label_" + labelIndex + ";";
+      retval += buildLookaheadChecker(conds, actions, e);
+      if (DCT) {
+        retval += " /*p1eg-1n-2*/";
+      }
+      retval += "\u0002\n" + "}";
+      retval += "\nend_label_" + labelIndex + ": ;";
+
+    } else if (e instanceof ZeroOrMore) {
+      final ZeroOrMore e_nrw = (ZeroOrMore) e;
+      final Expansion nested_e = e_nrw.getExpansion();
+      Lookahead la;
+      if (nested_e instanceof Sequence) {
+        la = (Lookahead) ((Sequence) nested_e).units.get(0);
+      } else {
+        la = new Lookahead();
+        la.setAmount(Options.getLookahead());
+        la.setLaExpansion(nested_e);
+      }
+      if (DCT) {
+        retval += " /*p1eg-0n-1*/";
+      }
+      retval += "\n";
+      final int labelIndex = ++gensymindex;
+      retval += "while (!hasError) {\u0001";
+      conds = new Lookahead[1];
+      conds[0] = la;
+      actions = new String[2];
+      actions[0] = "";
+      actions[1] = "\ngoto end_label_" + labelIndex + ";";
+      retval += buildLookaheadChecker(conds, actions, e);
+      retval += phase1ExpansionGen(nested_e);
+      if (DCT) {
+        retval += " /*p1eg-0n-2*/";
+      }
+      retval += "\u0002\n" + "}";
+      retval += "\nend_label_" + labelIndex + ": ;";
+
+    } else if (e instanceof ZeroOrOne) {
+      final ZeroOrOne e_nrw = (ZeroOrOne) e;
+      final Expansion nested_e = e_nrw.getExpansion();
+      Lookahead la;
+      if (nested_e instanceof Sequence) {
+        la = (Lookahead) ((Sequence) nested_e).units.get(0);
+      } else {
+        la = new Lookahead();
+        la.setAmount(Options.getLookahead());
+        la.setLaExpansion(nested_e);
+      }
+      conds = new Lookahead[1];
+      conds[0] = la;
+      actions = new String[2];
+      actions[0] = phase1ExpansionGen(nested_e);
+      actions[1] = "";
+      retval += buildLookaheadChecker(conds, actions, e);
+
+    } else if (e instanceof TryBlock) {
+      final TryBlock e_nrw = (TryBlock) e;
+      final Expansion nested_e = e_nrw.exp;
+      List<Token> list;
+      retval += "\n";
+      retval += "try {\u0001";
+      if (DCT) {
+        retval += " /*p1eg-tb-1*/";
+      }
+      retval += phase1ExpansionGen(nested_e);
+      retval += "\u0002\n" + "}";
+      if (DCT) {
+        retval += " /*p1eg-tb-2*/ ";
+      }
+      for (int i = 0; i < e_nrw.catchblks.size(); i++) {
+        retval += " catch (";
+        list = e_nrw.types.get(i);
+        if (list.size() != 0) {
+          cb.printTokenSetup(list.get(0));
+          for (final Iterator<Token> it = list.iterator(); it.hasNext(); ) {
+            t = it.next();
+            retval += CodeBuilder.toString(t);
+          }
+          retval += cb.getTrailingComments(t);
+        }
+        retval += " ";
+        // t = (Token)(e_nrw.ids.get(i));
+        // codeGen.printTokenSetup(t);
+        // retval += codeGen.getStringToPrint(t);
+        // retval += codeGen.getTrailingComments(t);
+        // retval += ") {\u0003\n";
+        list = e_nrw.catchblks.get(i);
+        if (list.size() != 0) {
+          cb.printTokenSetup((list.get(0)));
+          for (final Iterator<Token> it = list.iterator(); it.hasNext(); ) {
+            t = it.next();
+            retval += CodeBuilder.toString(t);
+          }
+          retval += cb.getTrailingComments(t);
+        }
+        retval += "\u0004\n" + "}";
+        if (DCT) {
+          retval += " /*p1eg-tb-3*/";
+        }
+      }
+      if (e_nrw.finallyblk != null) {
+        retval += " finally {\u0003\n";
+        if (e_nrw.finallyblk.size() != 0) {
+          cb.printTokenSetup(e_nrw.finallyblk.get(0));
+          for (final Iterator<Token> it = e_nrw.finallyblk.iterator(); it.hasNext(); ) {
+            t = it.next();
+            retval += CodeBuilder.toString(t);
+          }
+          retval += cb.getTrailingComments(t);
+        }
+        retval += "\u0004\n" + "}";
+        if (DCT) {
+          retval += " /*p1eg-tb-4*/";
+        }
+      }
+    }
+
+    return retval;
+  }
+
+  private static String addTokenNamespace(String token) {
+    if (token != null) {
+      if (!Options.getTokenConstantsNamespace().isEmpty()) {
+        token = Options.getTokenConstantsNamespace() + "::" + token;
+      }
+    }
+    return token;
+  }
+
+  /* Constants used in the following method "buildLookaheadChecker". */
+  private final int NOOPENSTM = 0;
+  private final int OPENIF = 1;
+  private final int OPENSWITCH = 2;
+
+  /**
+   * This method takes two parameters - an array of Lookahead's "<code>conds</code>", and an array
+   * of String's "<code>actions</code>".<br>
+   * "<code>actions</code>" contains exactly one element more than "<code>conds</code>".<br>
+   * "<code>actions</code>" are Java source code, and "<code>conds</code>" translate to conditions
+   * <br>
+   * - so lets say "<code>f(conds[i])</code>" is <code>true</code> if the lookahead required by "
+   * <code>conds[i] </code>" is indeed the case. <br>
+   * This method returns a string corresponding to the Java code for: <br>
+   * <code>
+   * if (f(conds[0]) actions[0]<br>
+   * else if (f(conds[1]) actions[1]<br>
+   * . . .<br>
+   * else actions[action.length-1]
+   * </code> <br>
+   * A particular action entry ("<code>actions[i]</code>") can be <code>null</code>, in which case,
+   * a noop is generated for that action.
+   */
+  private String buildLookaheadChecker(
+      final Lookahead[] conds, final String[] actions, final Expansion exp) {
+
+    // The state variables.
+    int state = NOOPENSTM;
+    int indentAmt = 0;
+    final boolean[] casedValues = new boolean[context.globals().tokenCount];
+    String retval = "";
+    Lookahead la;
+    Token t = null;
+    final int tokenMaskSize = ((context.globals().tokenCount - 1) / 32) + 1;
+    int[] tokenMask = null;
+
+    // Iterate over all the conditions.
+    int index = 0;
+    while (index < conds.length) {
+
+      la = conds[index];
+      jj2LA = false;
+
+      if ((la.getAmount() == 0)
+          || Semanticize.emptyExpansionExists(la.getLaExpansion())
+          || javaCodeCheck(la.getLaExpansion())) {
+
+        // This handles the following cases:
+        // . If syntactic lookahead is not wanted (and hence explicitly specified as 0).
+        // . If it is possible for the lookahead expansion to recognize the empty string
+        //   - in which case the lookahead trivially passes.
+        // . If the lookahead expansion has a JAVACODE production that it directly expands to
+        //   - in which case the lookahead trivially passes.
+        if (la.getActionTokens().size() == 0) {
+          // In addition, if there is no semantic lookahead, then the lookahead trivially succeeds.
+          // So break the main loop and treat this case as the default last action.
+          break;
+        } else {
+          // This case is when there is only semantic lookahead (without any preceding syntactic
+          //  lookahead). In this case, an "if" statement is generated.
+          switch (state) {
+            case NOOPENSTM:
+              retval += "\n" + "if (";
+              if (DCT) {
+                retval += " /*semla1*/ ";
+              }
+              indentAmt++;
+              break;
+            case OPENIF:
+              retval += "\u0002\n" + "} else if (";
+              if (DCT) {
+                retval += " /*semla2*/ ";
+              }
+              break;
+            case OPENSWITCH:
+              retval += "\u0002\n" + "default:" + "\u0001";
+              if (DCT) {
+                retval += " /*semla3*/";
+              }
+              if (Options.getErrorReporting()) {
+                retval += "\njj_la1[" + context.globals().maskindex + "]     = jj_gen;";
+                retval +=
+                    "\njj_la1_loc["
+                        + context.globals().maskindex
+                        + "] = "
+                        + exp.getLine()
+                        + ":"
+                        + exp.getColumn();
+                context.globals().maskindex++;
+                context.globals().maskVals.add(tokenMask);
+              }
+              retval += "\n" + "if (";
+              if (DCT) {
+                retval += " /*semla4*/ ";
+              }
+              indentAmt++;
+          }
+          cb.printTokenSetup(la.getActionTokens().get(0));
+          for (final Iterator<Token> it = la.getActionTokens().iterator(); it.hasNext(); ) {
+            t = it.next();
+            retval += CodeBuilder.toString(t);
+          }
+          retval += cb.getTrailingComments(t);
+          if (DCT) {
+            retval += " /*semla5*/ ";
+          }
+          retval += ") {\u0001" + actions[index];
+          state = OPENIF;
+        }
+
+      } else if ((la.getAmount() == 1) && (la.getActionTokens().size() == 0)) {
+        // Special optimal processing when the lookahead is exactly 1
+        //  and there is no semantic lookahead.
+
+        if (firstSet == null) {
+          firstSet = new boolean[context.globals().tokenCount];
+        }
+        for (int i = 0; i < context.globals().tokenCount; i++) {
+          firstSet[i] = false;
+        }
+        // jj2LA is set to false at the beginning of the containing "if" statement.
+        // It is checked immediately after the end of the same statement to determine
+        //  if lookaheads are to be performed using calls to the jj2 methods.
+        genFirstSet(la.getLaExpansion());
+        // genFirstSet may find that semantic attributes are appropriate for the next token.
+        // In which case, it sets jj2LA to true.
+        if (!jj2LA) {
+
+          // This case is if there is no applicable semantic lookahead and the lookahead is one
+          //  (excluding the earlier cases such as JAVACODE, etc.).
+          switch (state) {
+            case OPENIF:
+              retval += "\u0002\n" + "} else {\u0001";
+              if (DCT) {
+                retval += " /*la11*/";
+              }
+              // Control flows through to next case.
+            case NOOPENSTM:
+              retval += "\n" + "switch (";
+              if (Options.getCacheTokens()) {
+                retval += "jj_nt->kind()) {\u0001";
+              } else {
+                retval += "(jj_ntk == -1) ? jj_ntk_f() : jj_ntk) {\u0001\u0001";
+              }
+              if (DCT) {
+                retval += " /*la12*/ ";
+              }
+              for (int i = 0; i < context.globals().tokenCount; i++) {
+                casedValues[i] = false;
+              }
+              indentAmt++;
+              tokenMask = new int[tokenMaskSize];
+              for (int i = 0; i < tokenMaskSize; i++) {
+                tokenMask[i] = 0;
+              }
+              // Don't need to do anything if state is OPENSWITCH.
+          }
+          for (int i = 0; i < context.globals().tokenCount; i++) {
+            if (firstSet[i]) {
+              if (!casedValues[i]) {
+                casedValues[i] = true;
+                retval += "\u0002\ncase ";
+                final int j1 = i / 32;
+                final int j2 = i % 32;
+                tokenMask[j1] |= 1 << j2;
+                final String s =
+                    addTokenNamespace(context.globals().names_of_tokens.get(Integer.valueOf(i)));
+                if (s == null) {
+                  retval += i;
+                } else {
+                  retval += s;
+                }
+                retval += ":\u0001";
+                if (DCT) {
+                  retval += " /*la13*/ ";
+                }
+              }
+            }
+          }
+          retval += actions[index];
+          retval += "\nbreak;";
+          if (DCT) {
+            retval += " /*la20*/";
+          }
+          state = OPENSWITCH;
+        }
+
+      } else {
+        // This is the case when lookahead is determined through calls to jj2 methods.
+        // The other case is when lookahead is 1, but semantic attributes need to be evaluated.
+        // Hence this crazy control structure.
+
+        jj2LA = true;
+      }
+
+      if (jj2LA) {
+        // In this case lookahead is determined by the jj2 methods.
+        switch (state) {
+          case NOOPENSTM:
+            retval += "\n" + "if (";
+            if (DCT) {
+              retval += " /*jj21*/ ";
+            }
+            indentAmt++;
+            break;
+          case OPENIF:
+            retval += "\u0002\n" + "} else if (";
+            if (DCT) {
+              retval += " /*jj22*/ ";
+            }
+            break;
+          case OPENSWITCH:
+            retval += "\u0002\n" + "default: " + "\u0001";
+            if (DCT) {
+              retval += " /*jj23*/";
+            }
+            if (Options.getErrorReporting()) {
+              retval += "\njj_la1[" + context.globals().maskindex + "]     = jj_gen;";
+              retval +=
+                  "\njj_la1_loc["
+                      + context.globals().maskindex
+                      + "] = \""
+                      + exp.getLine()
+                      + ":"
+                      + exp.getColumn()
+                      + "\";";
+              context.globals().maskindex++;
+              context.globals().maskVals.add(tokenMask);
+            }
+            retval += "\n" + "if (";
+            if (DCT) {
+              retval += " /*jj24*/";
+            }
+            indentAmt++;
+        }
+        context.globals().jj2index++;
+        // At this point, la.la_expansion.internal_name must be "".
+        internalNames.put(la.getLaExpansion(), "_" + context.globals().jj2index);
+        internalIndexes.put(la.getLaExpansion(), context.globals().jj2index);
+        phase2list.add(la);
+        String amount;
+        if (la.getAmount() == Integer.MAX_VALUE) {
+          amount = "INT_MAX";
+        } else {
+          amount = Integer.toString(la.getAmount());
+        }
+
+        retval +=
+            "LA_Phase2_Success == jj_2"
+                + internalNames.get(la.getLaExpansion())
+                + "("
+                + la.getAmount()
+                + (DCT ? " /*jj25*/" : "")
+                + ")";
+        if (la.getActionTokens().size() != 0) {
+          // In addition, there is also a semantic lookahead.
+          // So concatenate the semantic check with the syntactic one.
+          retval += " && (";
+          if (DCT) {
+            retval += " /*jj26*/";
+          }
+          cb.printTokenSetup(la.getActionTokens().get(0));
+          for (final Iterator<Token> it = la.getActionTokens().iterator(); it.hasNext(); ) {
+            t = it.next();
+            retval += CodeBuilder.toString(t);
+          }
+          retval += cb.getTrailingComments(t);
+          retval += ")";
+        }
+        retval += ") {\u0001" + actions[index];
+        if (DCT) {
+          retval += " /*jj27*/";
+        }
+        state = OPENIF;
+      }
+
+      index++;
+    }
+
+    // Generate code for the default case. Note this may not be the last entry of "actions"
+    //  if any condition can be statically determined to be always "true".
+
+    switch (state) {
+      case NOOPENSTM:
+        if (Options.getErrorReporting()) {
+          retval += actions[index].replace("*loc*", "n/a");
+        } else {
+          retval += actions[index];
+        }
+        break;
+      case OPENIF:
+        retval += "\u0002\n" + "} else {\u0001";
+        if (DCT) {
+          retval += " /*la91*/";
+        }
+        if (Options.getErrorReporting()) {
+          retval += actions[index].replace("*loc*", "n/a");
+
+        } else {
+          retval += actions[index];
+        }
+        break;
+      case OPENSWITCH:
+        retval += "\u0002\n" + "default: " + "\u0001";
+        if (DCT) {
+          retval += "/*la92*/";
+        }
+        if (Options.getErrorReporting()) {
+          retval += "\njj_la1[" + context.globals().maskindex + "]     = jj_gen;";
+          retval +=
+              "\njj_la1_loc["
+                  + context.globals().maskindex
+                  + "] = \""
+                  + exp.getLine()
+                  + ":"
+                  + exp.getColumn()
+                  + "\";";
+          retval += actions[index].replace("*loc*", exp.getLine() + ":" + exp.getColumn());
+          context.globals().maskVals.add(tokenMask);
+          context.globals().maskindex++;
+        } else {
+          retval += actions[index];
+        }
+        retval += "\u0002";
+        break;
+    }
+    for (int i = 0; i < indentAmt; i++) {
+      retval += "\u0002\n}";
+      if (DCT) {
+        retval += " /*la93*/";
+      }
+    }
+
+    return retval;
   }
 
   /**
@@ -1217,11 +2124,9 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
       }
       for (int i = 0; i < seq.units.size(); i++) {
         final Expansion unit = seq.units.get(i);
-        // Javacode productions can not have FIRST sets. Instead we generate the
-        // FIRST set
-        // for the preceding LOOKAHEAD (the semantic checks should have made
-        // sure that
-        // the LOOKAHEAD is suitable).
+        // Javacode productions can not have FIRST sets.
+        // Instead we generate the FIRST set for the preceding LOOKAHEAD
+        //  (the semantic checks should have made sure that the LOOKAHEAD is suitable).
         if ((unit instanceof NonTerminal)
             && (((NonTerminal) unit).getProd() instanceof CodeProduction)) {
           if ((i > 0) && (seq.units.get(i - 1) instanceof Lookahead)) {
@@ -1250,301 +2155,6 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
     }
   }
 
-  /* Constants used in the following method "buildLookaheadChecker". */
-  private final int NOOPENSTM = 0;
-  private final int OPENIF = 1;
-  private final int OPENSWITCH = 2;
-
-  /*
-   * The phase 1 routines generates their output into String's and dumps these String's once for
-   *  each method.
-   * These String's contain the special characters '\u0001' to indicate a positive indent,
-   *  and '\u0002' to indicate a negative indent.
-   * '\n' is used to indicate a line terminator.
-   * The characters '\u0003' and '\u0004' are used to delineate portions of text where '\n's
-   *  should not be followed by an indentation.
-   */
-
-  /**
-   * This method takes two parameters - an array of Lookahead's "<code>conds</code>", and an array
-   * of String's "<code>actions</code>".<br>
-   * "<code>actions</code>" contains exactly one element more than "<code>conds</code>".<br>
-   * "<code>actions</code>" are Java source code, and "<code>conds</code>" translate to conditions
-   * <br>
-   * - so lets say "<code>f(conds[i])</code>" is <code>true</code> if the lookahead required by "
-   * <code>conds[i] </code>" is indeed the case. <br>
-   * This method returns a string corresponding to the Java code for: <br>
-   * <code>
-   * if (f(conds[0]) actions[0]<br>
-   * else if (f(conds[1]) actions[1]<br>
-   * . . .<br>
-   * else actions[action.length-1]
-   * </code> <br>
-   * A particular action entry ("<code>actions[i]</code>") can be <code>null</code>, in which case,
-   * a noop is generated for that action.
-   */
-  private String buildLookaheadChecker(
-      final Lookahead[] conds, final String[] actions, final Expansion exp) {
-
-    // The state variables.
-    int state = NOOPENSTM;
-    int indentAmt = 0;
-    final boolean[] casedValues = new boolean[context.globals().tokenCount];
-    String retval = "";
-    Lookahead la;
-    Token t = null;
-    final int tokenMaskSize = ((context.globals().tokenCount - 1) / 32) + 1;
-    int[] tokenMask = null;
-
-    // Iterate over all the conditions.
-    int index = 0;
-    while (index < conds.length) {
-
-      la = conds[index];
-      jj2LA = false;
-
-      if ((la.getAmount() == 0)
-          || Semanticize.emptyExpansionExists(la.getLaExpansion())
-          || javaCodeCheck(la.getLaExpansion())) {
-
-        // This handles the following cases:
-        // . If syntactic lookahead is not wanted (and hence explicitly specified as 0).
-        // . If it is possible for the lookahead expansion to recognize the empty string
-        //   - in which case the lookahead trivially passes.
-        // . If the lookahead expansion has a JAVACODE production that it directly expands to
-        //   - in which case the lookahead trivially passes.
-        if (la.getActionTokens().size() == 0) {
-          // In addition, if there is no semantic lookahead, then the lookahead trivially succeeds.
-          // So break the main loop and treat this case as the default last action.
-          break;
-        } else {
-          // This case is when there is only semantic lookahead (without any preceding syntactic
-          //  lookahead). In this case, an "if" statement is generated.
-          switch (state) {
-            case NOOPENSTM:
-              retval += "\n" + "if (";
-              indentAmt++;
-              break;
-            case OPENIF:
-              retval += "\u0002\n" + "} else if (";
-              break;
-            case OPENSWITCH:
-              retval += "\n" + "default: /*semla*/" + "\u0001";
-              if (Options.getErrorReporting()) {
-                retval += "\njj_la1[" + context.globals().maskindex + "]     = jj_gen;";
-                retval +=
-                    "\njj_la1_loc["
-                        + context.globals().maskindex
-                        + "] = "
-                        + exp.getLine()
-                        + ":"
-                        + exp.getColumn();
-                context.globals().maskindex++;
-                context.globals().maskVals.add(tokenMask);
-              }
-              retval += "\n" + "if (";
-              indentAmt++;
-          }
-          ccb.printTokenSetup(la.getActionTokens().get(0));
-          for (final Iterator<Token> it = la.getActionTokens().iterator(); it.hasNext(); ) {
-            t = it.next();
-            retval += CodeBuilder.toString(t);
-          }
-          retval += ccb.getTrailingComments(t);
-          retval += ") {\u0001" + actions[index];
-          state = OPENIF;
-        }
-
-      } else if ((la.getAmount() == 1) && (la.getActionTokens().size() == 0)) {
-        // Special optimal processing when the lookahead is exactly 1
-        //  and there is no semantic lookahead.
-
-        if (firstSet == null) {
-          firstSet = new boolean[context.globals().tokenCount];
-        }
-        for (int i = 0; i < context.globals().tokenCount; i++) {
-          firstSet[i] = false;
-        }
-        // jj2LA is set to false at the beginning of the containing "if" statement.
-        // It is checked immediately after the end of the same statement to determine
-        //  if lookaheads are to be performed using calls to the jj2 methods.
-        genFirstSet(la.getLaExpansion());
-        // genFirstSet may find that semantic attributes are appropriate for the next token.
-        // In which case, it sets jj2LA to true.
-        if (!jj2LA) {
-
-          // This case is if there is no applicable semantic lookahead and the lookahead is one
-          //  (excluding the earlier cases such as JAVACODE, etc.).
-          switch (state) {
-            case OPENIF:
-              retval += "\u0002\n" + "} else {\u0001";
-              // Control flows through to next case.
-            case NOOPENSTM:
-              retval += "\n" + "switch (";
-              if (Options.getCacheTokens()) {
-                retval += "jj_nt->kind()";
-                retval += ") {\u0001";
-              } else {
-                retval += "(jj_ntk == -1) ? jj_ntk_f() : jj_ntk) {\u0001\u0001";
-              }
-              for (int i = 0; i < context.globals().tokenCount; i++) {
-                casedValues[i] = false;
-              }
-              indentAmt++;
-              tokenMask = new int[tokenMaskSize];
-              for (int i = 0; i < tokenMaskSize; i++) {
-                tokenMask[i] = 0;
-              }
-              // Don't need to do anything if state is OPENSWITCH.
-          }
-          for (int i = 0; i < context.globals().tokenCount; i++) {
-            if (firstSet[i]) {
-              if (!casedValues[i]) {
-                casedValues[i] = true;
-                retval += "\ncase ";
-                final int j1 = i / 32;
-                final int j2 = i % 32;
-                tokenMask[j1] |= 1 << j2;
-                final String s =
-                    addTokenNamespace(context.globals().names_of_tokens.get(Integer.valueOf(i)));
-                if (s == null) {
-                  retval += i;
-                } else {
-                  retval += s;
-                }
-                retval += " : \u0001";
-              }
-            }
-          }
-          retval += "{";
-          retval += actions[index];
-          retval += "\nbreak;";
-          state = OPENSWITCH;
-        }
-
-      } else {
-        // This is the case when lookahead is determined through calls to jj2 methods.
-        // The other case is when lookahead is 1, but semantic attributes need to be evaluated.
-        // Hence this crazy control structure.
-
-        jj2LA = true;
-      }
-
-      if (jj2LA) {
-        // In this case lookahead is determined by the jj2 methods.
-        switch (state) {
-          case NOOPENSTM:
-            retval += "\n" + "if (";
-            indentAmt++;
-            break;
-          case OPENIF:
-            retval += "\u0002\n" + "} else if (";
-            break;
-          case OPENSWITCH:
-            retval += "\n" + "default: /*jj2*/" + "\u0001";
-            if (Options.getErrorReporting()) {
-              retval += "\njj_la1[" + context.globals().maskindex + "]     = jj_gen;";
-              retval +=
-                  "\njj_la1_loc["
-                      + context.globals().maskindex
-                      + "] = \""
-                      + exp.getLine()
-                      + ":"
-                      + exp.getColumn()
-                      + "\";";
-              context.globals().maskindex++;
-              context.globals().maskVals.add(tokenMask);
-            }
-            retval += "\n" + "if (";
-            indentAmt++;
-        }
-        context.globals().jj2index++;
-        // At this point, la.la_expansion.internal_name must be "".
-        internalNames.put(la.getLaExpansion(), "_" + context.globals().jj2index);
-        internalIndexes.put(la.getLaExpansion(), context.globals().jj2index);
-        phase2list.add(la);
-        String amount;
-        if (la.getAmount() == Integer.MAX_VALUE) {
-          amount = "INT_MAX";
-        } else {
-          amount = Integer.toString(la.getAmount());
-        }
-
-        retval +=
-            "jj_2"
-                + internalNames.get(la.getLaExpansion())
-                + "("
-                + la.getAmount()
-                + ") == LA_PHASE_2_SUCCESS";
-        if (la.getActionTokens().size() != 0) {
-          // In addition, there is also a semantic lookahead.
-          // So concatenate the semantic check with the syntactic one.
-          retval += " && (";
-          ccb.printTokenSetup(la.getActionTokens().get(0));
-          for (final Iterator<Token> it = la.getActionTokens().iterator(); it.hasNext(); ) {
-            t = it.next();
-            retval += CodeBuilder.toString(t);
-          }
-          retval += ccb.getTrailingComments(t);
-          retval += ")";
-        }
-        retval += ") {\u0001" + actions[index];
-        state = OPENIF;
-      }
-
-      index++;
-    }
-
-    // Generate code for the default case. Note this may not be the last entry of "actions"
-    //  if any condition can be statically determined to be always "true".
-
-    switch (state) {
-      case NOOPENSTM:
-        if (Options.getErrorReporting()) {
-          retval += actions[index].replace("*loc*", "n/a");
-        } else {
-          retval += actions[index];
-        }
-        break;
-      case OPENIF:
-        retval += "\u0002\n" + "} else {\u0001";
-        if (Options.getErrorReporting()) {
-          retval += actions[index].replace("*loc*", "n/a");
-
-        } else {
-          retval += actions[index];
-        }
-        break;
-      case OPENSWITCH:
-        retval += "\u0002\n" + "default: /*last*/" + "\u0001";
-        if (Options.getErrorReporting()) {
-          retval += "\njj_la1[" + context.globals().maskindex + "]     = jj_gen;";
-          retval +=
-              "\njj_la1_loc["
-                  + context.globals().maskindex
-                  + "] = \""
-                  + exp.getLine()
-                  + ":"
-                  + exp.getColumn()
-                  + "\";";
-          retval += actions[index].replace("*loc*", exp.getLine() + ":" + exp.getColumn());
-          context.globals().maskVals.add(tokenMask);
-          context.globals().maskindex++;
-        } else {
-          retval += actions[index];
-        }
-        retval += "\u0002";
-        break;
-    }
-    for (int i = 0; i < indentAmt; i++) {
-      retval += "\u0002\n}";
-    }
-
-    return retval;
-  }
-
-  private int indentamt;
-
   private void dumpFormattedString(final String str) {
     char ch = ' ';
     char prevChar;
@@ -1556,10 +2166,10 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
         // do nothing - we've already printed a new line for the '\r'
         // during the previous iteration.
       } else if ((ch == '\n') || (ch == '\r')) {
-        ccb.println();
+        cb.println();
         if (indentOn) {
           for (int i1 = 0; i1 < indentamt; i1++) {
-            ccb.print(' ');
+            cb.print(' ');
           }
         }
       } else if (ch == '\u0001') {
@@ -1571,397 +2181,16 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
       } else if (ch == '\u0004') {
         indentOn = true;
       } else {
-        ccb.print(ch);
+        cb.print(ch);
       }
     }
-  }
-
-  /** Print method header and return the ERROR_RETURN string. */
-  private String generateCPPMethodheader(final BNFProduction p, Token t) {
-    final StringBuffer sig = new StringBuffer();
-    String ret, params;
-
-    final String method_name = p.getLhs();
-    boolean void_ret = false;
-    boolean ptr_ret = false;
-
-    ccb.printTokenSetup(t);
-    ccb.getLeadingComments(t);
-    sig.append(t.image);
-    if (t.kind == JavaCCParserConstants.VOID) {
-      void_ret = true;
-    }
-    if (t.kind == JavaCCParserConstants.STAR) {
-      ptr_ret = true;
-    }
-
-    for (int i = 1; i < p.getReturnTypeTokens().size(); i++) {
-      t = p.getReturnTypeTokens().get(i);
-      sig.append(CodeBuilder.toString(t));
-      if (t.kind == JavaCCParserConstants.VOID) {
-        void_ret = true;
-      }
-      if (t.kind == JavaCCParserConstants.STAR) {
-        ptr_ret = true;
-      }
-    }
-
-    ccb.getTrailingComments(t);
-    ret = sig.toString();
-
-    sig.setLength(0);
-    sig.append("(");
-    if (p.getParameterListTokens().size() != 0) {
-      ccb.printTokenSetup(p.getParameterListTokens().get(0));
-      for (final Iterator<Token> it = p.getParameterListTokens().iterator(); it.hasNext(); ) {
-        t = it.next();
-        sig.append(CodeBuilder.toString(t));
-      }
-      sig.append(ccb.getTrailingComments(t));
-    }
-    sig.append(")");
-    params = sig.toString();
-
-    // For now, just ignore comments
-    ccb.generateMethodDefHeader(
-        ret, context.globals().cu_name, p.getLhs() + params, sig.toString());
-
-    // Generate a default value for error return.
-    String default_return;
-    if (ptr_ret) {
-      default_return = "NULL";
-    } else if (void_ret) {
-      default_return = "";
-    } else {
-      default_return = "0"; // 0 converts to most (all?) basic types.
-    }
-
-    final StringBuffer ret_val = new StringBuffer("\n#if !defined ERROR_RET_" + method_name + "\n");
-    ret_val.append("#define ERROR_RET_" + method_name + " " + default_return + "\n");
-    ret_val.append("#endif\n");
-    ret_val.append("#define __ERROR_RET__ ERROR_RET_" + method_name + "\n");
-
-    return ret_val.toString();
-  }
-
-  private void buildPhase1Routine(final BNFProduction p) {
-    Token t = p.getReturnTypeTokens().get(0);
-    boolean voidReturn = false;
-    if (t.kind == JavaCCParserConstants.VOID) {
-      voidReturn = true;
-    }
-    String error_ret = null;
-    error_ret = generateCPPMethodheader(p, t);
-
-    ccb.print(" {");
-
-    if ((Options.getStopOnFirstError() && (error_ret != null))
-        || ((Options.getDepthLimit() > 0) && !voidReturn)) {
-      ccb.print(error_ret);
-    } else {
-      error_ret = null;
-    }
-
-    genStackCheck(voidReturn);
-
-    indentamt = 2;
-    String fmtProd = "";
-    if (Options.getDebugParser()) {
-      fmtProd = fmtProd(p);
-      ccb.println();
-      ccb.println(
-          "  JJEnter<std::function<void()>> jjenter([this]() { trace_call  (\""
-              + fmtProd
-              + "\"); });");
-      ccb.println(
-          "  JJExit <std::function<void()>> jjexit ([this]() { trace_return(\""
-              + fmtProd
-              + "\"); });");
-      ccb.print("  try {");
-      indentamt += 2;
-    }
-
-    if (!Options.getIgnoreActions() && (p.getDeclarationTokens().size() != 0)) {
-      ccb.println();
-      ccb.printTokenSetup(p.getDeclarationTokens().get(0));
-      for (final Iterator<Token> it = p.getDeclarationTokens().iterator(); it.hasNext(); ) {
-        t = it.next();
-        ccb.printToken(t);
-      }
-      ccb.printTrailingComments(t);
-    }
-
-    final String code = phase1ExpansionGen(p.getExpansion());
-    dumpFormattedString(code);
-    ccb.println();
-
-    if (p.isJumpPatched() && !voidReturn) {
-      ccb.println("  throw \"Missing return statement in function\";");
-    }
-    if (Options.getDebugParser()) {
-      ccb.println("  } catch(...) {");
-      ccb.println("  }");
-      indentamt -= 2;
-    }
-    if (!voidReturn) {
-      ccb.println("assert(false);");
-    }
-
-    if (error_ret != null) {
-      ccb.println("\n#undef __ERROR_RET__\n");
-    }
-    ccb.println("}");
-    ccb.println();
-  }
-
-  private int gensymindex = 0;
-
-  private String phase1ExpansionGen(final Expansion e) {
-    String retval = "";
-    Token t = null;
-    Lookahead[] conds;
-    String[] actions;
-    if (e instanceof RegularExpression) {
-      final RegularExpression e_nrw = (RegularExpression) e;
-      retval += "\n";
-      if (e_nrw.lhsTokens.size() != 0) {
-        ccb.printTokenSetup(e_nrw.lhsTokens.get(0));
-        for (final Iterator<Token> it = e_nrw.lhsTokens.iterator(); it.hasNext(); ) {
-          t = it.next();
-          retval += CodeBuilder.toString(t);
-        }
-        retval += ccb.getTrailingComments(t);
-        retval += " = ";
-      }
-      if (e_nrw.label.equals("")) {
-        final Object label = context.globals().names_of_tokens.get(Integer.valueOf(e_nrw.ordinal));
-        if (label != null) {
-          retval += "jj_consume_token(" + addTokenNamespace((String) label);
-        } else {
-          retval += "jj_consume_token(" + e_nrw.ordinal;
-        }
-      } else {
-        retval += "jj_consume_token(" + addTokenNamespace(e_nrw.label);
-      }
-      if (Options.getErrorReporting()) {
-        retval += ", \"" + e.getLine() + ":" + e.getColumn() + "\"";
-      }
-      retval += e_nrw.rhsToken == null ? ");" : ")->" + e_nrw.rhsToken.image + ";";
-
-      if (Options.getStopOnFirstError()) {
-        retval += "\n    { if (hasError) { return __ERROR_RET__; } }\n";
-      }
-
-    } else if (e instanceof NonTerminal) {
-      final NonTerminal e_nrw = (NonTerminal) e;
-      retval += "\n";
-      if (e_nrw.getLhsTokens().size() != 0) {
-        ccb.printTokenSetup(e_nrw.getLhsTokens().get(0));
-        for (final Iterator<Token> it = e_nrw.getLhsTokens().iterator(); it.hasNext(); ) {
-          t = it.next();
-          retval += CodeBuilder.toString(t);
-        }
-        retval += ccb.getTrailingComments(t);
-        retval += " = ";
-      }
-      retval += e_nrw.getName() + "(";
-      if (e_nrw.getArgumentTokens().size() != 0) {
-        ccb.printTokenSetup(e_nrw.getArgumentTokens().get(0));
-        for (final Iterator<Token> it = e_nrw.getArgumentTokens().iterator(); it.hasNext(); ) {
-          t = it.next();
-          retval += CodeBuilder.toString(t);
-        }
-        retval += ccb.getTrailingComments(t);
-      }
-      retval += ");";
-      if (Options.getStopOnFirstError()) {
-        retval += "\n    { if (hasError) { return __ERROR_RET__; } }\n";
-      }
-
-    } else if (e instanceof Action) {
-      final Action e_nrw = (Action) e;
-      //      retval += "\u0003\n";
-      if (!Options.getIgnoreActions() && (e_nrw.getActionTokens().size() != 0)) {
-        retval += "\n "; // half indent for distinguishing user actions from generated code
-        // this formatting is ok for an action of a single line, not of multiple lines
-        String code = "";
-        ccb.printTokenSetup(e_nrw.getActionTokens().get(0));
-        for (final Iterator<Token> it = e_nrw.getActionTokens().iterator(); it.hasNext(); ) {
-          t = it.next();
-          code += CodeBuilder.toString(t);
-        }
-        code += ccb.getTrailingComments(t);
-        retval += code.trim();
-      }
-      //      retval += "\u0004";
-
-    } else if (e instanceof Choice) {
-      final Choice e_nrw = (Choice) e;
-      final int nbChoices = e_nrw.getChoices().size();
-      conds = new Lookahead[nbChoices];
-      actions = new String[nbChoices + 1];
-      for (int i = 0; i < e_nrw.getChoices().size(); i++) {
-        final Sequence nestedSeq = (Sequence) e_nrw.getChoices().get(i);
-        actions[i] = phase1ExpansionGen(nestedSeq);
-        conds[i] = (Lookahead) nestedSeq.units.get(0);
-      }
-      actions[nbChoices] =
-          "\n"
-              + "jj_consume_token(-1);\n"
-              + "errorHandler->parseError(token, getToken(1), __FUNCTION__), hasError = true;"
-              + (Options.getStopOnFirstError() ? "\nreturn __ERROR_RET__;" : "");
-      // In previous line, the "errorHandler->parseError" never "throws" an exception since the
-      // evaluation of
-      //  jj_consume_token(-1) causes a parseError to be "thrown" first.
-      retval = buildLookaheadChecker(conds, actions, e);
-
-    } else if (e instanceof Sequence) {
-      final Sequence e_nrw = (Sequence) e;
-      // We skip the first element in the following iteration since it is the Lookahead object.
-      for (int i = 1; i < e_nrw.units.size(); i++) {
-        // For C++, since we are not using exceptions, we will protect all the
-        //  expansion choices with if (!error)
-        boolean wrap_in_block = false;
-        if (!context.globals().jjtreeGenerated) {
-          // for the last one, if it's an action, we will not protect it.
-          final Expansion elem = e_nrw.units.get(i);
-          if (!(elem instanceof Action)
-              || !(e.parent instanceof BNFProduction)
-              || (i != (e_nrw.units.size() - 1))) {
-            wrap_in_block = true;
-            retval += "\nif (!hasError) {\u0001";
-          }
-        }
-        retval += phase1ExpansionGen(e_nrw.units.get(i));
-        if (wrap_in_block) {
-          retval += "\u0002\n}";
-        }
-      }
-
-    } else if (e instanceof OneOrMore) {
-      final OneOrMore e_nrw = (OneOrMore) e;
-      final Expansion nested_e = e_nrw.getExpansion();
-      Lookahead la;
-      if (nested_e instanceof Sequence) {
-        la = (Lookahead) ((Sequence) nested_e).units.get(0);
-      } else {
-        la = new Lookahead();
-        la.setAmount(Options.getLookahead());
-        la.setLaExpansion(nested_e);
-      }
-      retval += "\n";
-      final int labelIndex = ++gensymindex;
-      retval += "while (!hasError) {\u0001";
-      retval += phase1ExpansionGen(nested_e);
-      conds = new Lookahead[1];
-      conds[0] = la;
-      actions = new String[2];
-      actions[0] = "";
-      actions[1] = "\ngoto end_label_" + labelIndex + ";";
-      retval += buildLookaheadChecker(conds, actions, e);
-      retval += "\u0002\n" + "}";
-      retval += "\nend_label_" + labelIndex + ": ;";
-
-    } else if (e instanceof ZeroOrMore) {
-      final ZeroOrMore e_nrw = (ZeroOrMore) e;
-      final Expansion nested_e = e_nrw.getExpansion();
-      Lookahead la;
-      if (nested_e instanceof Sequence) {
-        la = (Lookahead) ((Sequence) nested_e).units.get(0);
-      } else {
-        la = new Lookahead();
-        la.setAmount(Options.getLookahead());
-        la.setLaExpansion(nested_e);
-      }
-      retval += "\n";
-      final int labelIndex = ++gensymindex;
-      retval += "while (!hasError) {\u0001";
-      conds = new Lookahead[1];
-      conds[0] = la;
-      actions = new String[2];
-      actions[0] = "";
-      actions[1] = "\ngoto end_label_" + labelIndex + ";";
-      retval += buildLookaheadChecker(conds, actions, e);
-      retval += phase1ExpansionGen(nested_e);
-      retval += "\u0002\n" + "}";
-      retval += "\nend_label_" + labelIndex + ": ;";
-
-    } else if (e instanceof ZeroOrOne) {
-      final ZeroOrOne e_nrw = (ZeroOrOne) e;
-      final Expansion nested_e = e_nrw.getExpansion();
-      Lookahead la;
-      if (nested_e instanceof Sequence) {
-        la = (Lookahead) ((Sequence) nested_e).units.get(0);
-      } else {
-        la = new Lookahead();
-        la.setAmount(Options.getLookahead());
-        la.setLaExpansion(nested_e);
-      }
-      conds = new Lookahead[1];
-      conds[0] = la;
-      actions = new String[2];
-      actions[0] = phase1ExpansionGen(nested_e);
-      actions[1] = "";
-      retval += buildLookaheadChecker(conds, actions, e);
-
-    } else if (e instanceof TryBlock) {
-      final TryBlock e_nrw = (TryBlock) e;
-      final Expansion nested_e = e_nrw.exp;
-      List<Token> list;
-      retval += "\n";
-      retval += "try {\u0001";
-      retval += phase1ExpansionGen(nested_e);
-      retval += "\u0002\n" + "}";
-      for (int i = 0; i < e_nrw.catchblks.size(); i++) {
-        retval += " catch (";
-        list = e_nrw.types.get(i);
-        if (list.size() != 0) {
-          ccb.printTokenSetup(list.get(0));
-          for (final Iterator<Token> it = list.iterator(); it.hasNext(); ) {
-            t = it.next();
-            retval += CodeBuilder.toString(t);
-          }
-          retval += ccb.getTrailingComments(t);
-        }
-        // retval += " ";
-        // t = (Token)(e_nrw.ids.get(i));
-        // codeGen.printTokenSetup(t);
-        // retval += codeGen.getStringToPrint(t);
-        // retval += codeGen.getTrailingComments(t);
-        // retval += ") {\u0003\n";
-        list = e_nrw.catchblks.get(i);
-        if (list.size() != 0) {
-          ccb.printTokenSetup((list.get(0)));
-          for (final Iterator<Token> it = list.iterator(); it.hasNext(); ) {
-            t = it.next();
-            retval += CodeBuilder.toString(t);
-          }
-          retval += ccb.getTrailingComments(t);
-        }
-        retval += "\u0004\n" + "}";
-      }
-      if (e_nrw.finallyblk != null) {
-        retval += " finally {\u0003\n";
-        if (e_nrw.finallyblk.size() != 0) {
-          ccb.printTokenSetup(e_nrw.finallyblk.get(0));
-          for (final Iterator<Token> it = e_nrw.finallyblk.iterator(); it.hasNext(); ) {
-            t = it.next();
-            retval += CodeBuilder.toString(t);
-          }
-          retval += ccb.getTrailingComments(t);
-        }
-        retval += "\u0004\n" + "}";
-      }
-    }
-
-    return retval;
   }
 
   private void buildPhase2Routine(final Lookahead la) {
     final Expansion e = la.getLaExpansion();
-    ccb.println("  inline bool ", "jj_2" + internalNames.get(e) + "(int xla) {");
-    ccb.println("    jj_la = xla; jj_lastpos = jj_scanpos = token;");
-    ccb.println("    jj_done = false;");
+    cb.println("  inline bool ", "jj_2" + internalNames.get(e) + "(int xla) {");
+    cb.println("    jj_la = xla; jj_lastpos = jj_scanpos = token;");
+    cb.println("    jj_laok = false;");
 
     String ret_suffix = "";
     if (Options.getDepthLimit() > 0) {
@@ -1976,157 +2205,58 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
         par = ((Expansion) par).parent;
       }
       final NormalProduction prod = ((NormalProduction) par);
-      ccb.println(
-          "      trace_la_call(\"Entering LOOKAHEAD (\" + xla + \") " + fmtAt(e, prod) + "\");");
-      ccb.println("      final boolean rc = jj_3" + internalNames.get(e) + "()" + ret_suffix + ";");
-      ccb.println("    if (jj_done) {");
-      ccb.println(
-          "      trace_la_return(\"Caught SUCCESSFUL LOOKAHEAD (\" + xla + \"/\" + jj_la + \") "
+      cb.println(
+          "    trace_la_call(\"Entering LOOKAHEAD (\" + std::to_string(xla) + \") "
+              + fmtAt(e, prod)
+              + "\");");
+      cb.println("    bool rc = jj_3" + internalNames.get(e) + "()" + ret_suffix + ";");
+      cb.println("    if (jj_laok) {");
+      cb.println(
+          "      trace_la_return(\"Caught SUCCESSFUL LOOKAHEAD (\" + std::to_string(xla) + \"/\" + std::to_string(jj_la) + \") "
               + fmtAt(e, prod)
               + "\");");
       if (Options.getErrorReporting()) {
-        ccb.println(
-            "    jj_save(" + (Integer.parseInt(internalNames.get(e).substring(1)) - 1) + ", xla);");
+        cb.println(
+            "      jj_save("
+                + (Integer.parseInt(internalNames.get(e).substring(1)) - 1)
+                + ", xla);");
       }
-      ccb.println("      return LA_PHASE_2_SUCCESS;");
-      ccb.println("    } else {");
-      ccb.println(
-          "      trace_la_return(\"Exiting \" + (rc ? \"FAILED\" : \"SUCCESSFUL\") + \""
-              + " LOOKAHEAD (\" + xla + \"/\" + jj_la + \") "
+      cb.println("      return LA_Phase2_Success;");
+      cb.println("    } else {");
+      cb.println("      JJString rcs = (rc ? \"FAILED\" : \"SUCCEDEED\");");
+      cb.println(
+          "      trace_la_return(\"Exiting \" + rcs + \""
+              + " LOOKAHEAD (\" + std::to_string(xla) + \"/\" + std::to_string(jj_la) + \") "
               + fmtAt(e, prod)
               + "\");");
       if (Options.getErrorReporting()) {
-        ccb.println(
-            "    jj_save(" + (Integer.parseInt(internalNames.get(e).substring(1)) - 1) + ", xla);");
+        cb.println(
+            "      jj_save("
+                + (Integer.parseInt(internalNames.get(e).substring(1)) - 1)
+                + ", xla);");
       }
-      ccb.println("      return (!rc);");
-      ccb.println("    }");
+      cb.println("      return (!rc);");
+      cb.println("    }");
 
     } else {
       // no DebugLookahead
-      ccb.println("    return (!jj_3" + internalNames.get(e) + "() || jj_done)" + ret_suffix + ";");
+      cb.println("    return (!jj_3" + internalNames.get(e) + "() || jj_laok)" + ret_suffix + ";");
       if (Options.getErrorReporting()) {
-        ccb.println(
+        cb.println(
             "    jj_save(" + (Integer.parseInt(internalNames.get(e).substring(1)) - 1) + ", xla);");
       }
-      ccb.println("    return LA_PHASE_2_FAILURE;");
+      cb.println("    return LA_Phase2_Failure;");
     }
 
-    ccb.println("  }");
-    ccb.println();
+    cb.println("  }");
+    cb.println();
     final Phase3Data p3d = new Phase3Data(e, la.getAmount());
     phase3list.add(p3d);
     phase3table.put(e, p3d);
   }
 
-  private boolean xsp_declared;
-
-  private Expansion jj3_expansion;
-
-  protected static final String EOL = System.getProperty("line.separator", "\n");
-
-  private String genReturn(final boolean value, final int amt, final String addInd) {
-    String ind = "";
-    for (int i = 0; i < amt; i++) {
-      ind += "  ";
-    }
-    final String rc = value ? "LA_PHASE_3_FAILURE" : "LA_PHASE_3_SUCCESS";
-    if (Options.getDebugLookahead() && (jj3_expansion != null)) {
-      final String eolIndent = EOL + (value ? "      " : "    ") + ind;
-      final StringBuilder sb = new StringBuilder(160);
-      sb.append(ind);
-      if (Options.getErrorReporting()) {
-        sb.append("if (!jj_rescan) ");
-      }
-      sb.append("trace_la_return(\"");
-      sb.append(fmtProd((NormalProduction) jj3_expansion.parent));
-      sb.append(": ");
-      sb.append("look ahead (\" + jj_la + \") ");
-      sb.append(value ? "FAILED" : "SUCCESSFUL");
-      sb.append(")\");");
-      if (Options.getErrorReporting()) {
-        sb.append(eolIndent);
-      }
-      sb.append(addInd).append("return ").append(rc).append(";");
-      return sb.toString();
-    } else {
-      return ind + "return " + rc + ";";
-    }
-  }
-
-  private static String getTokenImages() {
-    return addTokenNamespace("tokenImages");
-  }
-
-  private static String getTokenLabels() {
-    return addTokenNamespace("tokenLabels");
-  }
-
-  private void generate3R(final Expansion e, final Phase3Data inf) {
-    Expansion seq = e;
-    if (!internalNames.containsKey(e) || internalNames.get(e).equals("")) {
-      while (true) {
-        if ((seq instanceof Sequence) && (((Sequence) seq).units.size() == 2)) {
-          seq = ((Sequence) seq).units.get(1);
-        } else if (seq instanceof NonTerminal) {
-          final NonTerminal e_nrw = (NonTerminal) seq;
-          final NormalProduction ntprod = context.globals().production_table.get(e_nrw.getName());
-          if (ntprod instanceof CodeProduction) {
-            break; // nothing to do here
-          } else {
-            seq = ntprod.getExpansion();
-          }
-        } else {
-          break;
-        }
-      }
-
-      if (seq instanceof RegularExpression) {
-        final RegularExpression re = (RegularExpression) seq;
-        String jj_scan_token = "jj_scan_token";
-        if (re.label.equals("")) {
-          final Object label = context.globals().names_of_tokens.get(Integer.valueOf(re.ordinal));
-          if (label != null) {
-            jj_scan_token += "(" + addTokenNamespace((String) label);
-          } else {
-            jj_scan_token += "(" + re.ordinal;
-          }
-        } else {
-          jj_scan_token += "(" + addTokenNamespace(re.label);
-        }
-        if (Options.getErrorReporting()) {
-          jj_scan_token += ", \"" + e.getLine() + ":" + e.getColumn() + "\")";
-        }
-        jj_scan_token += ")";
-        internalNames.put(e, jj_scan_token);
-        return;
-      }
-
-      gensymindex++;
-      // if (gensymindex == 100)
-      // {
-      // new Error().codeGen.printStackTrace();
-      // System.out.println(" ***** seq: " + seq.internal_name + "; size: " +
-      // ((Sequence)seq).units.size());
-      // }
-      internalNames.put(
-          e,
-          "R_"
-              + e.getProductionName()
-              + "_"
-              + e.getLine()
-              + "_"
-              + e.getColumn()
-              + "_"
-              + gensymindex);
-      internalIndexes.put(e, gensymindex);
-    }
-    Phase3Data p3d = phase3table.get(e);
-    if ((p3d == null) || (p3d.count < inf.count)) {
-      p3d = new Phase3Data(e, inf.count);
-      phase3list.add(p3d);
-      phase3table.put(e, p3d);
-    }
+  private static String fmtAt(final Expansion e, final NormalProduction prod) {
+    return "(at " + e.getLine() + ":" + e.getColumn() + " in " + fmtProd(prod) + ")";
   }
 
   private void setupPhase3Builds(final Phase3Data inf) {
@@ -2183,53 +2313,80 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
     }
   }
 
-  private static String addTokenNamespace(String token) {
-    if (token != null) {
-      if (!Options.getTokenConstantsNamespace().isEmpty()) {
-        token = Options.getTokenConstantsNamespace() + "::" + token;
+  private void generate3R(final Expansion e, final Phase3Data inf) {
+    Expansion seq = e;
+    if (!internalNames.containsKey(e) || internalNames.get(e).equals("")) {
+      while (true) {
+        if ((seq instanceof Sequence) && (((Sequence) seq).units.size() == 2)) {
+          seq = ((Sequence) seq).units.get(1);
+        } else if (seq instanceof NonTerminal) {
+          final NonTerminal e_nrw = (NonTerminal) seq;
+          final NormalProduction ntprod = context.globals().production_table.get(e_nrw.getName());
+          if (ntprod instanceof CodeProduction) {
+            break; // nothing to do here
+          } else {
+            seq = ntprod.getExpansion();
+          }
+        } else {
+          break;
+        }
       }
+
+      if (seq instanceof RegularExpression) {
+        final RegularExpression re = (RegularExpression) seq;
+        String str = "jj_scan_token(";
+        if (re.label.equals("")) {
+          final Object label = context.globals().names_of_tokens.get(Integer.valueOf(re.ordinal));
+          if (label != null) {
+            str += addTokenNamespace((String) label);
+          } else {
+            str += re.ordinal;
+          }
+        } else {
+          str += addTokenNamespace(re.label);
+        }
+        if (Options.getErrorReporting()) {
+          str += ", \"" + e.getLine() + ":" + e.getColumn() + "\"";
+        }
+        str += ")";
+        if (DCT) {
+          str += " /*g3r-re*/";
+        }
+        internalNames.put(e, str);
+        return;
+      }
+
+      gensymindex++;
+      // if (gensymindex == 100)
+      // {
+      // new Error().codeGen.printStackTrace();
+      // System.out.println(" ***** seq: " + seq.internal_name + "; size: " +
+      // ((Sequence)seq).units.size());
+      // }
+      internalNames.put(
+          e,
+          "R_"
+              + e.getProductionName()
+              + "_"
+              + e.getLine()
+              + "_"
+              + e.getColumn()
+              + "_"
+              + gensymindex
+              + (DCT ? "/*g3r-!re*/" : ""));
+      internalIndexes.put(e, gensymindex);
     }
-    return token;
-  }
-
-  private String getTokenType() {
-    String type = "Token";
-    if (Options.getTokenClass().isEmpty()) {
-      type = "Token";
-    } else {
-      type = Options.getTokenClass();
-    }
-
-    if (!Options.getTokenNamespace().isEmpty()) {
-      type = Options.getTokenNamespace() + "::" + type;
-    }
-    return type;
-  }
-
-  @SuppressWarnings("unused")
-  private String getTokenTypePointer() {
-    return getTokenType() + "*";
-  }
-
-  private static String fmtAt(final Expansion e, final NormalProduction prod) {
-    return "(at " + e.getLine() + ":" + e.getColumn() + " in " + fmtProd(prod) + ")";
-  }
-
-  private static String fmtProd(final NormalProduction p) {
-    return p == null
-        ? "?-?"
-        : (JavaCCGlobals.addUnicodeEscapes(p.getLhs()) + "-" + p.getLine()
-        //        + ":" + p.getColumn()
-        );
-  }
-
-  private String genjj_3Call(final Expansion e) {
-    if (internalNames.containsKey(e) && internalNames.get(e).startsWith("jj_scan_token")) {
-      return internalNames.get(e) + " == LA_SCAN_TOKEN_FAILURE";
-    } else {
-      return "jj_3" + internalNames.get(e) + "() == LA_PHASE_3_FAILURE";
+    Phase3Data p3d = phase3table.get(e);
+    if ((p3d == null) || (p3d.count < inf.count)) {
+      p3d = new Phase3Data(e, inf.count);
+      phase3list.add(p3d);
+      phase3table.put(e, p3d);
     }
   }
+
+  private boolean xsp_declared;
+
+  private Expansion jj3_expansion;
 
   private void buildPhase3Routine(
       final Phase3Data inf, final boolean recursive_call, final String indent) {
@@ -2242,27 +2399,35 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
 
     if (!recursive_call) {
       if (Options.getDebugLookahead()) {
-        ccb.print("  bool ");
+        cb.print("  bool ");
       } else {
-        ccb.print("  inline bool ");
+        cb.print("  inline bool ");
       }
-      ccb.println("jj_3" + internalNames.get(e) + "() {");
-      ccb.println("    if (jj_done) return LA_SCAN_TOKEN_SUCCESS;");
+      cb.println("jj_3" + internalNames.get(e) + "() {");
+      cb.println("    if (jj_laok) { return LA_Scan_Token_Success; }");
       if (Options.getDepthLimit() > 0) {
-        ccb.println("#define __ERROR_RET__ true");
+        cb.println("#define __ERROR_RET__ true");
       }
       genStackCheck(false);
       xsp_declared = false;
       if (Options.getDebugLookahead() && (e.parent instanceof NormalProduction)) {
-        ccb.print("    ");
+        cb.print("    ");
         if (Options.getErrorReporting()) {
-          ccb.print("if (!jj_rescan) ");
+          cb.print("if (!jj_rescan) { ");
         }
-        ccb.println(
+        cb.print(
             "trace_la_call(\""
                 + fmtProd((NormalProduction) e.parent)
-                + ": looking ahead (\" + jj_la + \")...\");");
-        ccb.println("    try {");
+                + ": looking ahead (\" + std::to_string(jj_la) + \")...\");");
+        if (Options.getErrorReporting()) {
+          cb.print(" }");
+        }
+        cb.println();
+        cb.print("    try {");
+        if (DCT) {
+          cb.print(" /*bp3r-1*/");
+        }
+        cb.println();
         ind += "  ";
         jj3_expansion = e;
       } else {
@@ -2285,13 +2450,19 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
       } else {
         kindStr = addTokenNamespace((String) kindStr);
       }
-      ccb.print("    if (jj_scan_token(" + kindStr);
+      cb.print(ind + "    if (LA_Scan_Token_Failure == jj_scan_token(" + kindStr);
       if (Options.getErrorReporting()) {
-        ccb.print(", \"" + e.getLine() + ":" + e.getColumn() + "\"");
+        cb.print(", \"" + e.getLine() + ":" + e.getColumn() + "\"");
       }
-      ccb.println(") == LA_SCAN_TOKEN_FAILURE) {");
-      ccb.println(ind + "      " + genReturn(true, 0, ind));
+      cb.println(")) {");
+      indentamt += 2;
+      cb.println(ind + "    " + genReturn(true, 0, ind));
       indentamt -= 2;
+      cb.print(ind + "    }");
+      if (DCT) {
+        cb.print(" /*bp3r-re*/");
+      }
+      cb.println();
 
     } else if (e instanceof NonTerminal) {
       // All expansions of non-terminals have the "name" fields set.
@@ -2300,16 +2471,24 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
       final NonTerminal e_nrw = (NonTerminal) e;
       final NormalProduction ntprod = context.globals().production_table.get(e_nrw.getName());
       if (ntprod instanceof CodeProduction) {
-        ccb.println(ind + "    if (true) {");
-        ccb.println(ind + "      jj_la = 0;");
-        ccb.println(ind + "      jj_scanpos = jj_lastpos;");
-        ccb.println(ind + "      " + genReturn(false, 0, ind));
-        ccb.println(ind + "    }");
+        cb.println(ind + "    if (true) {");
+        cb.println(ind + "      jj_la = 0;");
+        cb.println(ind + "      jj_scanpos = jj_lastpos;");
+        cb.println(ind + "      " + genReturn(false, 0, ind));
+        cb.print(ind + "    }");
+        if (DCT) {
+          cb.print(" /*bp3r-nt1*/");
+        }
+        cb.println();
       } else {
         final Expansion ntexp = ntprod.getExpansion();
-        ccb.println(ind + "    if (" + genjj_3Call(ntexp) + ") {");
-        ccb.println(ind + "      " + genReturn(true, 0, ind));
-        ccb.println(ind + "    }");
+        cb.println(ind + "    if (" + genjj_3Call(ntexp) + ") {");
+        cb.println(ind + "      " + genReturn(true, 0, ind));
+        cb.print(ind + "    }");
+        if (DCT) {
+          cb.print(" /*bp3r-nt2*/");
+        }
+        cb.println();
       }
 
     } else if (e instanceof Choice) {
@@ -2318,53 +2497,59 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
       if (e_nrw.getChoices().size() != 1) {
         if (!xsp_declared) {
           xsp_declared = true;
-          ccb.println(ind + "    Token* xsp;");
+          cb.println(ind + "    Token* xsp;");
         }
-        ccb.println(ind + "    xsp = jj_scanpos;");
+        cb.println(ind + "    xsp = jj_scanpos;");
       }
       for (int i = 0; i < e_nrw.getChoices().size(); i++) {
+        String dec = "";
+        for (int k = 0; k < i; k++) {
+          dec += "  ";
+        }
         nested_seq = (Sequence) e_nrw.getChoices().get(i);
         final Lookahead la = (Lookahead) nested_seq.units.get(0);
         if (la.getActionTokens().size() != 0) {
           // We have semantic lookahead that must be evaluated.
           context.globals().lookaheadNeeded = true;
-          ccb.println(ind + "    jj_lookingAhead = true;");
-          ccb.print(ind + "    jj_semLA = ");
-          ccb.printTokenSetup(la.getActionTokens().get(0));
+          cb.println(dec + ind + "    jj_lookingAhead = true;");
+          cb.print(dec + ind + "    jj_semLA = ");
+          cb.printTokenSetup(la.getActionTokens().get(0));
           for (final Iterator<Token> it = la.getActionTokens().iterator(); it.hasNext(); ) {
             t = it.next();
-            ccb.printToken(t);
+            cb.printToken(t);
           }
-          ccb.printTrailingComments(t);
-          ccb.println(ind + ";");
-          ccb.println(ind + "    jj_lookingAhead = false;");
+          //          ccb.printTrailingComments(t);
+          cb.println(";");
+          cb.println(dec + ind + "    jj_lookingAhead = false;");
         }
-        for (int k = 0; k < indentamt; k++) {
-          ccb.print(' ');
+        cb.print(dec + ind + "    if (");
+        if (DCT) {
+          cb.print("/*bp3r-ch1*/ ");
         }
-        ccb.print(ind + "  if (");
         if (la.getActionTokens().size() != 0) {
-          ccb.print("!jj_semLA || ");
+          cb.print("!jj_semLA || ");
         }
+        cb.println(genjj_3Call(nested_seq) + ") {");
         if (i != (e_nrw.getChoices().size() - 1)) {
-          // {");
-          ccb.println(genjj_3Call(nested_seq) + ") {");
-          indentamt += 2;
-          ccb.println(ind + "      jj_scanpos = xsp;");
+          cb.println(dec + ind + "      jj_scanpos = xsp;");
         } else {
-          ccb.print(genjj_3Call(nested_seq) + ") {");
-          indentamt += 2;
-          ccb.println(genReturn(true, i, ind));
-          indentamt -= 2;
+          cb.println(dec + ind + "      " + genReturn(true, i, ind));
+          cb.print(dec + ind + "    }");
+          if (DCT) {
+            cb.print(" /*bp3r-ch2*/");
+          }
+          cb.println();
         }
-        ccb.println(ind + "  }");
       }
-      for (int i = 1; i < e_nrw.getChoices().size(); i++) {
-        indentamt -= 2;
-        for (int k = 0; k < indentamt; k++) {
-          ccb.print(' ');
+      for (int i = e_nrw.getChoices().size(); i > 1; i--) {
+        for (int k = i - 1; k > 1; k--) {
+          cb.print("  ");
         }
-        ccb.println(ind + "  }");
+        cb.print(ind + "    }");
+        if (DCT) {
+          cb.print(" /*bp3r-ch3*/");
+        }
+        cb.println();
       }
 
     } else if (e instanceof Sequence) {
@@ -2387,48 +2572,135 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
     } else if (e instanceof OneOrMore) {
       if (!xsp_declared) {
         xsp_declared = true;
-        ccb.println(ind + "    Token* xsp;");
+        cb.println(ind + "    Token* xsp;");
       }
       final OneOrMore e_nrw = (OneOrMore) e;
       final Expansion nested_e = e_nrw.getExpansion();
-      ccb.println(ind + "    if (" + genjj_3Call(nested_e) + ") " + genReturn(true, 0, ind));
-      ccb.println(ind + "    while (true) {");
-      ccb.println(ind + "      xsp = jj_scanpos;");
-      ccb.println(ind + "      if (" + genjj_3Call(nested_e) + ") { jj_scanpos = xsp; break; }");
-      ccb.println(ind + "    }");
+      cb.println(ind + "    if (" + genjj_3Call(nested_e) + ") {");
+      cb.println(ind + "      " + genReturn(true, 0, ind));
+      cb.print(ind + "    }");
+      if (DCT) {
+        cb.print(" /*bp3r-1n1*/");
+      }
+      cb.println();
+      cb.println(ind + "    while (true) {");
+      cb.println(ind + "      xsp = jj_scanpos;");
+      cb.println(ind + "      if (" + genjj_3Call(nested_e) + ") {");
+      cb.println(ind + "        jj_scanpos = xsp;");
+      cb.println(ind + "        break;");
+      cb.println(ind + "      }");
+      cb.print(ind + "    }");
+      if (DCT) {
+        cb.print(" /*bp3r-1n2*/");
+      }
+      cb.println();
 
     } else if (e instanceof ZeroOrMore) {
       if (!xsp_declared) {
         xsp_declared = true;
-        ccb.println(ind + "    Token* xsp;");
+        cb.println(ind + "    Token* xsp;");
       }
       final ZeroOrMore e_nrw = (ZeroOrMore) e;
       final Expansion nested_e = e_nrw.getExpansion();
-      ccb.println(ind + "    while (true) {");
-      ccb.println(ind + "      xsp = jj_scanpos;");
-      ccb.println(ind + "      if (" + genjj_3Call(nested_e) + ") { jj_scanpos = xsp; break; }");
-      ccb.println(ind + "    }");
+      cb.println(ind + "    while (true) {");
+      cb.println(ind + "      xsp = jj_scanpos;");
+      cb.println(ind + "      if (" + genjj_3Call(nested_e) + ") {");
+      cb.println(ind + "        jj_scanpos = xsp;");
+      cb.println(ind + "        break;");
+      cb.println(ind + "      }");
+      cb.print(ind + "    }");
+      if (DCT) {
+        cb.print(" /*bp3r-0n*/");
+      }
+      cb.println();
 
     } else if (e instanceof ZeroOrOne) {
       if (!xsp_declared) {
         xsp_declared = true;
-        ccb.println(ind + "    Token* xsp;");
+        cb.println(ind + "    Token* xsp;");
       }
       final ZeroOrOne e_nrw = (ZeroOrOne) e;
       final Expansion nested_e = e_nrw.getExpansion();
-      ccb.println(ind + "    xsp = jj_scanpos;");
-      ccb.println(ind + "    if (" + genjj_3Call(nested_e) + ") jj_scanpos = xsp;");
+      cb.println(ind + "    xsp = jj_scanpos;");
+      cb.println(ind + "    if (" + genjj_3Call(nested_e) + ") {");
+      cb.println(ind + "      jj_scanpos = xsp;");
+      cb.print(ind + "    }");
+      if (DCT) {
+        cb.print(" /*bp3r-01*/");
+      }
+      cb.println();
     }
 
     if (!recursive_call) {
-      indentamt += 2;
-      ccb.println(ind + "    " + genReturn(false, 0, ind));
-      if (Options.getDepthLimit() > 0) {
-        ccb.println("#undef __ERROR_RET__");
+      cb.print(ind + "    " + genReturn(false, 0, ind));
+      if (DCT) {
+        cb.print(" /*bp3r-6*/");
       }
-      indentamt -= 2;
-      ccb.println(ind + "  }");
-      ccb.println();
+      cb.println();
+      if (Options.getDepthLimit() > 0) {
+        cb.println("#undef __ERROR_RET__");
+      }
+      if (Options.getDebugLookahead() && e.parent instanceof NormalProduction) {
+        cb.print("    } catch(LookaheadSuccess ls) {");
+        if (DCT) {
+          cb.print(" /*bp3r-7*/");
+        }
+        cb.println();
+        cb.print("      ");
+        if (Options.getErrorReporting()) {
+          cb.print("if (!jj_rescan) ");
+        }
+        cb.println(
+            "trace_la_return(\""
+                + fmtProd((NormalProduction) jj3_expansion.parent)
+                + ": look ahead SUCCESSFUL\");");
+        cb.println("      throw ls;");
+        cb.print("    }");
+        if (DCT) {
+          cb.print(" /*bp3r-8*/");
+        }
+        cb.println();
+      }
+      cb.println("  }");
+      cb.println();
+    }
+  }
+
+  private String genjj_3Call(final Expansion e) {
+    if (internalNames.containsKey(e) && internalNames.get(e).startsWith("jj_scan_token")) {
+      return "LA_Scan_Token_Failure == " + internalNames.get(e);
+    } else {
+      return "LA_Phase3_Failure == jj_3" + internalNames.get(e) + "()";
+    }
+  }
+
+  protected static final String EOL = System.getProperty("line.separator", "\n");
+
+  private String genReturn(final boolean value, final int amt, final String curInd) {
+    String ind = "";
+    for (int i = 0; i < amt; i++) {
+      ind += "  ";
+    }
+    final String rc = value ? "LA_Phase3_Failure" : "LA_Phase3_Success";
+    if (Options.getDebugLookahead() && (jj3_expansion != null)) {
+      final StringBuilder sb = new StringBuilder(160);
+      if (Options.getErrorReporting()) {
+        sb.append("if (!jj_rescan) { ");
+      }
+      sb.append("trace_la_return(\"");
+      sb.append(fmtProd((NormalProduction) jj3_expansion.parent));
+      sb.append(": ");
+      sb.append("look ahead scan (\" + std::to_string(jj_la) + \") ");
+      sb.append(value ? "FAILED" : "SUCCEDEED");
+      sb.append("\");");
+      if (Options.getErrorReporting()) {
+        sb.append(" }");
+      }
+      sb.append(EOL + (value ? "      " : "    ") + ind);
+      sb.append(curInd).append("return ").append(rc).append(";");
+      return sb.toString();
+    } else {
+      return ind + "return " + rc + ";";
     }
   }
 
@@ -2520,132 +2792,23 @@ class ParserCodeGenerator implements org.javacc.parser.ParserCodeGenerator {
   private void genStackCheck(final boolean voidReturn) {
     if (Options.getDepthLimit() > 0) {
       if (!voidReturn) {
-        ccb.println("if (jj_depth_error) { return __ERROR_RET__; }");
+        cb.println("if (jj_depth_error) { return __ERROR_RET__; }");
       } else {
-        ccb.println("if (jj_depth_error) { return; }");
+        cb.println("if (jj_depth_error) { return; }");
       }
-      ccb.println("__jj_depth_inc __jj_depth_counter(this);");
-      ccb.println("if (jj_depth > " + Options.getDepthLimit() + ") {");
-      ccb.println("  jj_depth_error = true;");
+      cb.println("__jj_depth_inc __jj_depth_counter(this);");
+      cb.println("if (jj_depth > " + Options.getDepthLimit() + ") {");
+      cb.println("  jj_depth_error = true;");
       //      ccb.println("  jj_consume_token(-1);");
-      ccb.println("  errorHandler->parseError(token, getToken(1), __FUNCTION__), hasError = true;");
+      cb.println("  errorHandler->parseError(token, getToken(1), __FUNCTION__), hasError = true;");
       if (!voidReturn) {
-        ccb.println("  return __ERROR_RET__;"); // Non-recoverable
+        cb.println("  return __ERROR_RET__;"); // Non-recoverable
         // error
       } else {
-        ccb.println("  return;"); // Non-recoverable error
+        cb.println("  return;"); // Non-recoverable error
       }
-      ccb.println("}");
+      cb.println("}");
     }
-  }
-
-  private void build() {
-    NormalProduction p;
-    CppCodeProduction cp;
-
-    ccb.switchToIncludeFile();
-    ccb.println("  /* Lookahead phases return codes. */");
-    ccb.println();
-    ccb.println("#define LA_PHASE_2_FAILURE false");
-    ccb.println("#define LA_PHASE_2_SUCCESS true");
-    ccb.println("#define LA_PHASE_3_FAILURE true");
-    ccb.println("#define LA_PHASE_3_SUCCESS false");
-    ccb.println("#define LA_SCAN_TOKEN_FAILURE true");
-    ccb.println("#define LA_SCAN_TOKEN_SUCCESS false");
-    ccb.println();
-
-    ccb.switchToMainFile();
-    for (final Iterator<NormalProduction> prodIterator =
-            context.globals().bnfproductions.iterator();
-        prodIterator.hasNext(); ) {
-      p = prodIterator.next();
-      if (p instanceof CppCodeProduction) {
-        cp = (CppCodeProduction) p;
-
-        final StringBuffer sig = new StringBuffer();
-        String ret, params;
-        Token t = null;
-
-        p.getLhs();
-
-        for (final Token element : p.getReturnTypeTokens()) {
-          t = element;
-          CodeBuilder.toString(t);
-          sig.append(t.toString());
-          sig.append(" ");
-        }
-
-        if (t != null) {
-          ccb.getTrailingComments(t);
-        }
-        ret = sig.toString();
-
-        sig.setLength(0);
-        sig.append("(");
-        if (p.getParameterListTokens().size() != 0) {
-          ccb.printTokenSetup(p.getParameterListTokens().get(0));
-          for (final Iterator<Token> it = p.getParameterListTokens().iterator(); it.hasNext(); ) {
-            t = it.next();
-            sig.append(CodeBuilder.toString(t));
-          }
-          sig.append(ccb.getTrailingComments(t));
-        }
-        sig.append(")");
-        params = sig.toString();
-
-        // For now, just ignore comments
-        ccb.generateMethodDefHeader(
-            ret, context.globals().cu_name, p.getLhs() + params, sig.toString());
-        ccb.println(" {");
-        if (Options.getDebugParser()) {
-          ccb.println();
-          ccb.println(
-              "    JJEnter<std::function<void()>> jjenter([this]() { trace_call  (\""
-                  + ccb.escapeToUnicode(cp.getLhs())
-                  + "\"); });");
-          ccb.println(
-              "    JJExit <std::function<void()>> jjexit ([this]() { trace_return(\""
-                  + ccb.escapeToUnicode(cp.getLhs())
-                  + "\"); });");
-          ccb.println("    try {");
-        }
-        if (cp.getCodeTokens().size() != 0) {
-          ccb.printTokenSetup(cp.getCodeTokens().get(0));
-          ccb.printTokenList(cp.getCodeTokens());
-        }
-        ccb.println();
-        if (Options.getDebugParser()) {
-          ccb.println("    } catch(...) {");
-          ccb.println("    }");
-        }
-        ccb.println("  }");
-        ccb.println();
-      } else if (p instanceof JavaCodeProduction) {
-        context.errors().semantic_error("Cannot use JAVACODE productions with C++ output (yet).");
-        continue;
-      } else {
-        buildPhase1Routine((BNFProduction) p);
-      }
-    }
-
-    ccb.switchToIncludeFile();
-    for (final Lookahead element : phase2list) {
-      buildPhase2Routine(element);
-    }
-
-    int phase3index = 0;
-
-    while (phase3index < phase3list.size()) {
-      for (; phase3index < phase3list.size(); phase3index++) {
-        setupPhase3Builds(phase3list.get(phase3index));
-      }
-    }
-
-    for (final Enumeration<Phase3Data> enumeration = phase3table.elements();
-        enumeration.hasMoreElements(); ) {
-      buildPhase3Routine(enumeration.nextElement(), false, "");
-    }
-    ccb.switchToMainFile();
   }
 }
 

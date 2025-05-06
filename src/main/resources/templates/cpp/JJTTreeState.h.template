@@ -42,6 +42,7 @@ using namespace std;
 #if NAMESPACE
 namespace ${NAMESPACE_OPEN}
 #fi
+
 class JJT${PARSER_NAME}State {
 private: 
   vector<Node*>* nodes;

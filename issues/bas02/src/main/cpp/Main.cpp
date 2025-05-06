@@ -84,9 +84,14 @@ int main(int argc, char **argv) {
 //    scanner->disable_tracing();
 //    MYPARSER parser(scanner);
     parser.MYENTRY();
-    cerr << "Input file parsed successfully" << endl;
+    if (!parser.getHasError()) {
+      cerr << "Input file parsed successfully" << endl;
+    } else {
+      cerr << "ParseException parsing input file" << endl;
+      cerr << parser.getErrorMsg();
+    }
   } catch (const ParseException &e) {
-    cerr << "ParseException parsing input file:" << endl;
+    cerr << "ParseException parsing input file" << endl;
     clog << e.expectedTokenSequences << endl;
   } catch (...) {
   }

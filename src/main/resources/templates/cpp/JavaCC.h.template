@@ -75,6 +75,8 @@ static const JJChar JJSPACE[]   = { ' ', 0 };
 static const JJChar JJCOMMA[]   = { ',', 0 };
 static const JJChar JJQUOTE[]   = { '\'', 0 };
 static const JJChar JJDBQUOTE[] = { '\"', 0 };
+static const JJChar JJLPAR[]    = { '(', 0 };
+static const JJChar JJRPAR[]    = { ')', 0 };
 
 
 /** Abstraction on stream classes to read a block of data into a buffer. */

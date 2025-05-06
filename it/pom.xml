@@ -487,5 +487,34 @@ THE POSSIBILITY OF SUCH DAMAGE.
       </activation>
     </profile>
 
+    <profile>
+      <!-- requested by nar-maven-plugin for the goal nar:nar-vcproj
+           if one wants to generate the MSVC project-->
+      <id>windows-debug</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>com.github.maven-nar</groupId>
+            <artifactId>nar-maven-plugin</artifactId>
+            <configuration>
+              <cpp>
+                <includePaths>
+                  <includePath>
+                    <path>${project.basedir}/src/main/cpp</path>
+                  </includePath>
+                  <includePath>
+                    <path>${project.basedir}/target/generated-sources/cpp</path>
+                  </includePath>
+<!--                  <includePath>-->
+<!--                    <path>${project.basedir}/target/generated-sources/jjtree</path>-->
+<!--                  </includePath>-->
+                </includePaths>
+              </cpp>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
   </profiles>
 </project>

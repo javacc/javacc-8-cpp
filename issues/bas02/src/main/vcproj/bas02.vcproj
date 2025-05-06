@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<VisualStudioProject ProjectType="Visual C++" Version="8.00" Name="bas02">
+    <Platforms>
+        <Platform Name="Win32"/>
+    </Platforms>
+    <Configurations>
+        <Configuration Name="Debug|Win32" OutputDirectory="Debug"
+            IntermediateDirectory="Debug" ConfigurationType="1" CharacterSet="0">
+            <Tool Name="VCCLCompilerTool" Optimization="0"
+                AdditionalIncludeDirectories="C:\Devs\GitRepo\javacc-8-cpp\issues\bas02\src\main\cpp;C:\Devs\GitRepo\javacc-8-cpp\issues\bas02\target\generated-sources\cpp;C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC\14.41.34120\include;C:\Program Files (x86)\Windows Kits\10\Include\10.0.22621.0\shared;C:\Program Files (x86)\Windows Kits\10\Include\10.0.22621.0\ucrt;C:\Program Files (x86)\Windows Kits\10\Include\10.0.22621.0\um;C:\Program Files (x86)\Windows Kits\10\Include\10.0.22621.0\winrt"
+                PreprocessorDefinitions="_DEBUG;JJ8;WIN32;WIN64;VCPROJ_MOJO"
+                MinimalRebuild="true" BasicRuntimeChecks="0"
+                RuntimeLibrary="3" UsePrecompiledHeader="0" DebugInformationFormat="4"/>
+            <Tool Name="VCLinkerTool" LinkIncremental="1"
+                GenerateDebugInformation="true" SubSystem="1" TargetMachine="0"/>
+        </Configuration>
+        <Configuration Name="Release|Win32" OutputDirectory="Release"
+            IntermediateDirectory="Release" ConfigurationType="1" CharacterSet="0">
+            <Tool Name="VCCLCompilerTool" Optimization="2"
+                AdditionalIncludeDirectories="C:\Devs\GitRepo\javacc-8-cpp\issues\bas02\src\main\cpp;C:\Devs\GitRepo\javacc-8-cpp\issues\bas02\target\generated-sources\cpp;C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\MSVC\14.41.34120\include;C:\Program Files (x86)\Windows Kits\10\Include\10.0.22621.0\shared;C:\Program Files (x86)\Windows Kits\10\Include\10.0.22621.0\ucrt;C:\Program Files (x86)\Windows Kits\10\Include\10.0.22621.0\um;C:\Program Files (x86)\Windows Kits\10\Include\10.0.22621.0\winrt"
+                PreprocessorDefinitions="NDEBUG;JJ8;WIN32;WIN64;VCPROJ_MOJO"
+                MinimalRebuild="true" BasicRuntimeChecks="0"
+                RuntimeLibrary="2" UsePrecompiledHeader="0" DebugInformationFormat="0"/>
+            <Tool Name="VCLinkerTool" LinkIncremental="1"
+                GenerateDebugInformation="false" SubSystem="1" TargetMachine="0"/>
+        </Configuration>
+    </Configurations>
+    <References/>
+    <Files>
+        <Filter Name="Source Files" Filter="cpp;c;cxx;def;odl;idl;hpj;bat;asm;asmx">
+            <File RelativePath="..\..\..\src\main\cpp\Main.cpp"/>
+            <File RelativePath="..\..\..\src\main\cpp\StreamReader.cpp"/>
+        </Filter>
+        <Filter Name="Header Files" Filter="h;hpp;hxx;hm;inl;inc;xsd"/>
+        <Filter Name="Resource Files" Filter="rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx"/>
+    </Files>
+    <Globals/>
+</VisualStudioProject>

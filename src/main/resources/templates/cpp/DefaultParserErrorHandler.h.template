@@ -56,10 +56,9 @@ public:
       
   // Called when the parser encounters a different token when expecting to consume a specific kind of token.
   virtual void unexpectedToken(const JJString& expectedImage,
-                               const JJString& expectedLabel,
                                const JJString& actualImage,
-                               const JJString& actualLabel,
-                               const Token* actualToken);      
+                                  const Token* actualToken,
+                                         char* loc);      
       
   // Called when the parser cannot continue parsing.
   // last         - the last token successfully parsed
@@ -67,7 +66,7 @@ public:
   // production   - the production in which this error occurs
   virtual void parseError(const Token* last,
                           const Token* unexpected,
-                          const JJSimpleString& production);
+                 const JJSimpleString& production);
   
   virtual void otherError(const JJString& message);
 

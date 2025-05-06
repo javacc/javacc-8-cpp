@@ -55,17 +55,17 @@ ParseException::ParseException(   const Token* currentTokenVal,
              tokenImageVal,
              locationVal);
   this->currentToken = currentTokenVal;
-  this->expectedTokenSequences = expectedTokenSequenceVals;
+  this->expectedTokenSequences = expectedTokenSequencesVal;
   this->expectedTokenSequencesLoc = expectedTokenSequencesLocVal;
   this->tokenImage = tokenImageVal;
   this->location = locationVal;
 }
 
-JJString ParseException::initialise(   const Token* currToken, 
-                                        const int** expTokenSequences, 
-                                   const JJString** expTokenSequencesLoc,
-                                    const JJString* tokImage,
-                                         const int* loc) {
+JJString ParseException::initialise(const Token* currToken, 
+                                     const int** expTokenSequences, 
+                                const JJString** expTokenSequencesLoc,
+                                 const JJString* tokImage,
+                                 const JJString* loc) {
 
     // For now we don't support full ERROR_REPORTING in the C++ version.
     /* java, to be translated
