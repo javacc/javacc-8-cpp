@@ -213,7 +213,7 @@ Token * ${parserName}TokenManager::getNextToken() {
 #fi
 #if DEBUG_TOKEN_MANAGER
           if (trace_enabled()) {
-            JJERR << JJWIDE(Returning token:) << JJSPACE
+            JJERR << JJWIDE(Found a MATCH ***; returning token:) << JJSPACE
                   << JJDBQUOTE << addUnicodeEscapes(matchedToken->image()) << JJDBQUOTE
                   << JJSPACE << JJWIDE((tm)) << std::endl;
           }
@@ -479,16 +479,16 @@ int ${parserName}TokenManager::jjMoveNfa(int startState, int curPos) {
     moveIndex = 1;
   }
 
-  // We initialize the kind to MAX value so that when a match is found, we can
-  // simply check if it's less than the current match and store it in that
-  // case. This helps implement the 'first occurring' rule properly.
+    // We initialize the kind to MAX value so that when a match is found, we can
+    // simply check if it's less than the current match and store it in that case.
+    // This helps implement the 'first occurring' rule properly.
   int cnt = 0;
   stateSet[cnt++] = startState;
   moved[startState] = moveIndex;
  
-  // Some NFA states have epsilon transitions (move on empty string). So we
-  // just start with all of them. Note that the nextStates array already adds
-  // the epsilon closure. Only the initial state needs to do this explicitly.
+    // Some NFA states have epsilon transitions (move on empty string).
+    // So we just start with all of them. Note that the nextStates array already adds
+    // the epsilon closure. Only the initial state needs to do this explicitly.
   for (int s : jjcompositeState[startState]) { 
     if (moved[s] != moveIndex) {
       stateSet[cnt++] = s;

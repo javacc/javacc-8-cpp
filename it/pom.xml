@@ -123,7 +123,7 @@ THE POSSIBILITY OF SUCH DAMAGE.
             <library>
               <type>executable</type>
               <!-- just compile, link and package, do not run anything by default; runs will be
-                     through the maven-exec-plugin or this nar plugin (with overriden setting) -->
+                     through the exec-maven-plugin or this nar plugin (with overriden setting) -->
               <run>false</run>
             </library>
           </libraries>
