@@ -368,10 +368,8 @@ int ${parserName}TokenManager::jjRunStringLiteralMatch() {
               << JJWIDE(Looking for string literal match of token: <)
               << stringLiterals[index + len]
               << JJSPACE << JJWIDE(/) << JJSPACE
-              << JJDBQUOTE
-              << addUnicodeEscapes(tokenImage[stringLiterals[index + len]])
-              << JJDBQUOTE
-              << JJSPACE << JJWIDE(> (tm)) << std::endl;
+              << tokenImage[stringLiterals[index + len]]
+              << JJWIDE(> (tm)) << std::endl;
       }
 #fi
       do {
@@ -405,10 +403,8 @@ int ${parserName}TokenManager::jjRunStringLiteralMatch() {
                 << JJSPACE << JJWIDE(chars as token: <)
                 << stringLiterals[index + len]
                 << JJSPACE << JJWIDE(/) << JJSPACE
-                << JJDBQUOTE
-                << addUnicodeEscapes(tokenImage[jjmatchedKind])
-                << JJDBQUOTE
-                << JJSPACE << JJWIDE(> (tm)) << std::endl;
+                << tokenImage[jjmatchedKind]
+                << JJWIDE(> (tm)) << std::endl;
         }
 #fi
         if (!moveToNextChar()) {
@@ -526,11 +522,14 @@ int ${parserName}TokenManager::jjMoveNfa(int startState, int curPos) {
       if (trace_enabled()) {
         JJERR << JJSPACE << JJSPACE << JJSPACE << JJSPACE 
               << JJWIDE(Looking to move from state:) << JJSPACE << disp_state(state)
-              << JJCOMMA << JJSPACE << JJWIDE(for token: <)
-              << (jjmatchKinds[state] != INT_MAX
-                     ? (jjmatchKinds[state] + " / " + addUnicodeEscapes(tokenImage[jjmatchKinds[state]]))
-                     : JJWIDE(<UNKNOWN>))
-              << JJSPACE << JJWIDE(> (tm)) << std::endl;
+              << JJCOMMA << JJSPACE << JJWIDE(for token: <);
+        if (jjmatchKinds[state] != INT_MAX) {
+          JJERR << jjmatchKinds[state] << JJSPACE << JJWIDE(/) << JJSPACE
+                << addUnicodeEscapes(tokenImage[jjmatchKinds[state]]);
+        } else {
+          JJERR << JJWIDE(UNKNOWN);
+        }
+        JJERR << JJWIDE(> (tm)) << std::endl;
       }
 #fi
     bool canMoveThisNFAState = (jjChars[state][vectorIndex] & bitpattern) != 0L;
