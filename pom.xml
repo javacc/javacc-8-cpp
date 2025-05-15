@@ -178,7 +178,7 @@ THE POSSIBILITY OF SUCH DAMAGE.
 
     <profile>
       <!-- Relays activating a profile in the invoked tests; needs explicit activation -->
-      <id>failOnError-check-cpp-issues</id>
+      <id>doNotFailOnError-check-cpp-issues</id>
       <build>
         <plugins>
           <plugin>
@@ -191,7 +191,7 @@ THE POSSIBILITY OF SUCH DAMAGE.
                   <goal>run</goal>
                 </goals>
                 <configuration>
-                  <profiles>failOnError-check-cpp-issues</profiles>
+                  <profiles>doNotFailOnError-check-cpp-issues</profiles>
                 </configuration>
               </execution>
             </executions>
@@ -212,7 +212,7 @@ THE POSSIBILITY OF SUCH DAMAGE.
 
     <profile>
       <!-- Relays activating a profile in the invoked tests; needs explicit activation -->
-      <id>failOnError-check-cpp-examples</id>
+      <id>doNotFailOnError-check-cpp-examples</id>
       <build>
         <plugins>
           <plugin>
@@ -225,7 +225,7 @@ THE POSSIBILITY OF SUCH DAMAGE.
                   <goal>run</goal>
                 </goals>
                 <configuration>
-                  <profiles>failOnError-check-cpp-examples</profiles>
+                  <profiles>doNotFailOnError-check-cpp-examples</profiles>
                 </configuration>
               </execution>
             </executions>
@@ -246,7 +246,7 @@ THE POSSIBILITY OF SUCH DAMAGE.
 
     <profile>
       <!-- Relays activating a profile in the invoked tests; needs explicit activation -->
-      <id>failOnError-check-cpp-grammars</id>
+      <id>doNotFailOnError-check-cpp-grammars</id>
       <build>
         <plugins>
           <plugin>
@@ -259,7 +259,7 @@ THE POSSIBILITY OF SUCH DAMAGE.
                   <goal>run</goal>
                 </goals>
                 <configuration>
-                  <profiles>failOnError-check-cpp-grammars</profiles>
+                  <profiles>doNotFailOnError-check-cpp-grammars</profiles>
                 </configuration>
               </execution>
             </executions>

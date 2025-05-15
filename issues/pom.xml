@@ -64,7 +64,7 @@ THE POSSIBILITY OF SUCH DAMAGE.
     <profile>
       <!-- Sets a set of properties for not failing on error in checking results in submodules;
            needs explicit activation -->
-      <id>failOnError-check-cpp-issues</id>
+      <id>doNotFailOnError-check-cpp-issues</id>
       <properties>
         <failOnError.check.cpp.issues.bas01>false</failOnError.check.cpp.issues.bas01>
         <failOnError.check.cpp.issues.bas02>false</failOnError.check.cpp.issues.bas02>
