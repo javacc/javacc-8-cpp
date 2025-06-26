@@ -196,8 +196,24 @@ Token * ${parserName}TokenManager::getNextToken() {
 #fi
       }
 
+      if (jjmatchedKind == INT_MAX) {
+        jjmatchedKind = jjInitialMatchForLexState[curLexState];
+        jjmatchedPos = -1;
+#if DEBUG_TOKEN_MANAGER
+        if (trace_enabled()) {
+          JJERR << JJWIDE(Matched empty string as kind:) << JJSPACE << jjmatchedKind
+                << JJSPACE << JJWIDE((tm)) << std::endl;
+        }
+#fi
+      }
       if (jjmatchedKind != INT_MAX) {
         // We have a match!
+#if DEBUG_TOKEN_MANAGER
+          if (trace_enabled()) {
+          JJERR << JJWIDE(Put back:) << JJSPACE << (lastReadPosition - jjmatchedPos)
+                << JJSPACE << JJWIDE(looked ahead chars (tm)) << std::endl;
+        }
+#fi
         // Put back any characters looked ahead.
         input_stream->backup(lastReadPosition - jjmatchedPos);
         
@@ -226,10 +242,6 @@ Token * ${parserName}TokenManager::getNextToken() {
 
         if (isSkip(jjmatchedKind)) {
           // Matched kind is a SKIP.
-          skipLexicalActions(nullptr);
-          if (jjnewLexState[jjmatchedKind] != -1) {
-            curLexState = jjnewLexState[jjmatchedKind];
-          }
 #if DEBUG_TOKEN_MANAGER
           if (trace_enabled()) {
             JJERR << JJWIDE(Found a SKIP match: <) << jjmatchedKind
@@ -237,12 +249,25 @@ Token * ${parserName}TokenManager::getNextToken() {
                   << JJWIDE(; continuing (tm)) << std::endl;
           }
 #fi
+          skipLexicalActions(nullptr);
+          if (jjnewLexState[jjmatchedKind] != -1) {
+            curLexState = jjnewLexState[jjmatchedKind];
+          }
           goto EOFLoop;
         }
 
         if (isSpecial(jjmatchedKind)) {
           // Matched kind is a SPECIAL_TOKEN.
           matchedToken = jjFillToken();
+#if DEBUG_TOKEN_MANAGER
+          if (trace_enabled()) {
+            JJERR << JJWIDE(Found a SPECIAL_TOKEN match: <) << jjmatchedKind
+                  << JJSPACE << JJWIDE(/) << JJSPACE
+                  << JJDBQUOTE << addUnicodeEscapes(matchedToken->image()) << JJDBQUOTE
+                  << JJWIDE(> at lexical state:) << JJSPACE << curLexState
+                  << JJWIDE(; continuing (tm)) << std::endl;
+          }
+#fi
           if (specialToken == nullptr) {
             specialToken = matchedToken;
           } else {
@@ -253,15 +278,6 @@ Token * ${parserName}TokenManager::getNextToken() {
           if (jjnewLexState[jjmatchedKind] != -1) {
             curLexState = jjnewLexState[jjmatchedKind];
           }
-#if DEBUG_TOKEN_MANAGER
-          if (trace_enabled()) {
-            JJERR << JJWIDE(Found a SPECIAL_TOKEN match: <) << jjmatchedKind
-                  << JJSPACE << JJWIDE(/) << JJSPACE
-                  << JJDBQUOTE << addUnicodeEscapes(matchedToken->image()) << JJDBQUOTE
-                  << JJWIDE(> at lexical state:) << JJSPACE << curLexState
-                  << JJWIDE(; continuing (tm)) << std::endl;
-          }
-#fi
           goto EOFLoop;
         }
 
@@ -420,7 +436,7 @@ int ${parserName}TokenManager::jjRunStringLiteralMatch() {
                 << JJWIDE(> (tm)) << std::endl;
         }
 #fi
-        if (!moveToNextChar()) {
+        if (startState < 0 || !moveToNextChar()) {
           return curPos;
         }
         curPos++;

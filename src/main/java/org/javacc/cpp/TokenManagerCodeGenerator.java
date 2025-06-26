@@ -78,6 +78,7 @@ class TokenManagerCodeGenerator implements org.javacc.parser.TokenManagerCodeGen
     settings.put("defaultLexState", tokenizerData.defaultLexState);
     settings.put("decls", tokenizerData.decls);
     settings.put("generatedStates", tokenizerData.nfa.size());
+    settings.put("initMatch", tokenizerData.initialMatchForLexState);
 
     settings.put("noDfa", Options.getNoDfa());
 
@@ -284,7 +285,7 @@ class TokenManagerCodeGenerator implements org.javacc.parser.TokenManagerCodeGen
     ccb.println();
 
     /* jjInitStates. */
-    ccb.println("static const int jjInitStates[]  = {");
+    ccb.println("static const int jjInitStates[] = {");
     v = 0;
     for (final int i : tokenizerData.initialStates.keySet()) {
       if (v++ > 0) {
@@ -295,6 +296,27 @@ class TokenManagerCodeGenerator implements org.javacc.parser.TokenManagerCodeGen
       ccb.print(tokenizerData.initialStates.get(i));
     }
     ccb.println();
+    ccb.println("};");
+    ccb.println();
+
+    /* jjInitialMatchForLexState. */
+    if (Options.getCppUseArray()) {
+      ccb.print("static const Array<");
+      ccb.print(length + 1);
+      ccb.println(", int> jjInitialMatchForLexState[] = {");
+    } else {
+      ccb.print("static const int jjInitialMatchForLexState[] = {");
+    }
+    v = 0;
+    for (int i = 0; i < tokenizerData.lexStateNames.length; i++) {
+      if (v++ > 0) {
+        ccb.print(", ");
+      } else {
+        ccb.println();
+        ccb.print("    ");
+      }
+      ccb.print(tokenizerData.initialMatchForLexState[i]);
+    }
     ccb.println("};");
     ccb.println();
 

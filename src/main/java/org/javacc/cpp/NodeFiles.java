@@ -55,7 +55,7 @@ final class NodeFiles {
 
   static void generateNodeType(final String nodeType) {
     if (!nodeType.equals("Tree") && !nodeType.equals("Node")) {
-      NodeFiles.nodesToBuild.add(nodeType);
+      nodesToBuild.add(nodeType);
     }
   }
 
@@ -72,32 +72,30 @@ final class NodeFiles {
   }
 
   private static String visitorIncludeFile(final File outputDirectory) {
-    final String name = NodeFiles.visitorClass();
+    final String name = visitorClass();
     return new File(outputDirectory, name + ".h").getAbsolutePath();
   }
 
   static void generateOutputFiles(final JJTreeContext context) throws IOException {
-    NodeFiles.generateNodeHeader(context);
-    NodeFiles.generateSimpleNode(context);
-    NodeFiles.generateOneTree(context, false);
-    NodeFiles.generateMultiTree(context);
-    NodeFiles.generateTreeConstants(context);
-    NodeFiles.generateVisitors(context);
+    generateNodeHeader(context);
+    generateSimpleNode(context);
+    generateOneTree(context, false);
+    generateMultiTree(context);
+    generateTreeConstants(context);
+    generateVisitors(context);
   }
 
   private static void generateNodeHeader(final JJTreeContext context) {
     final CodeGeneratorSettings optionMap = CodeGeneratorSettings.of(Options.getOptions());
     optionMap.set("PARSER_NAME", JJTreeGlobals.parserName);
-    optionMap.set("VISITOR_RETURN_TYPE", NodeFiles.getVisitorReturnType());
-    optionMap.set("VISITOR_DATA_TYPE", NodeFiles.getVisitorDataType());
+    optionMap.set("VISITOR_RETURN_TYPE", getVisitorReturnType());
+    optionMap.set("VISITOR_DATA_TYPE", getVisitorDataType());
     optionMap.set(
-        "VISITOR_RETURN_TYPE_VOID",
-        Boolean.valueOf(NodeFiles.getVisitorReturnType().equals("void")));
+        "VISITOR_RETURN_TYPE_VOID", Boolean.valueOf(getVisitorReturnType().equals("void")));
 
     try (CppCodeBuilder ccb = CppCodeBuilder.ofHeader(context, optionMap)) {
-      ccb.setFile(
-          new File(NodeFiles.nodeIncludeFile(context.treeOptions().getJJTreeOutputDirectory())));
-      ccb.setVersion(NodeFiles.nodeVersion).addTools(JJTreeGlobals.toolName);
+      ccb.setFile(new File(nodeIncludeFile(context.treeOptions().getJJTreeOutputDirectory())));
+      ccb.setVersion(nodeVersion).addTools(JJTreeGlobals.toolName);
       ccb.addOption(
           "MULTI",
           "NODE_USES_PARSER",
@@ -117,16 +115,14 @@ final class NodeFiles {
   private static void generateSimpleNode(final JJTreeContext context) {
     final CodeGeneratorSettings optionMap = CodeGeneratorSettings.of(Options.getOptions());
     optionMap.set(Options.NUO__PARSER_NAME, JJTreeGlobals.parserName);
-    optionMap.set("VISITOR_RETURN_TYPE", NodeFiles.getVisitorReturnType());
-    optionMap.set("VISITOR_DATA_TYPE", NodeFiles.getVisitorDataType());
+    optionMap.set("VISITOR_RETURN_TYPE", getVisitorReturnType());
+    optionMap.set("VISITOR_DATA_TYPE", getVisitorDataType());
     optionMap.set(
-        "VISITOR_RETURN_TYPE_VOID",
-        Boolean.valueOf(NodeFiles.getVisitorReturnType().equals("void")));
+        "VISITOR_RETURN_TYPE_VOID", Boolean.valueOf(getVisitorReturnType().equals("void")));
 
     try (CppCodeBuilder ccb = CppCodeBuilder.of(context, optionMap)) {
-      ccb.setFile(
-          new File(NodeFiles.simpleNodeCodeFile(context.treeOptions().getJJTreeOutputDirectory())));
-      ccb.setVersion(NodeFiles.nodeVersion).addTools(JJTreeGlobals.toolName);
+      ccb.setFile(new File(simpleNodeCodeFile(context.treeOptions().getJJTreeOutputDirectory())));
+      ccb.setVersion(nodeVersion).addTools(JJTreeGlobals.toolName);
       ccb.addOption(
           "MULTI",
           "NODE_USES_PARSER",
@@ -149,19 +145,17 @@ final class NodeFiles {
       final JJTreeContext context, final boolean generateOneTreeImpl) {
     final CodeGeneratorSettings optionMap = CodeGeneratorSettings.of(Options.getOptions());
     optionMap.set("PARSER_NAME", JJTreeGlobals.parserName);
-    optionMap.set("VISITOR_RETURN_TYPE", NodeFiles.getVisitorReturnType());
-    optionMap.set("VISITOR_DATA_TYPE", NodeFiles.getVisitorDataType());
+    optionMap.set("VISITOR_RETURN_TYPE", getVisitorReturnType());
+    optionMap.set("VISITOR_DATA_TYPE", getVisitorDataType());
     optionMap.set(
-        "VISITOR_RETURN_TYPE_VOID",
-        Boolean.valueOf(NodeFiles.getVisitorReturnType().equals("void")));
+        "VISITOR_RETURN_TYPE_VOID", Boolean.valueOf(getVisitorReturnType().equals("void")));
 
     try (CppCodeBuilder ccb =
         generateOneTreeImpl
             ? CppCodeBuilder.of(context, optionMap)
             : CppCodeBuilder.ofHeader(context, optionMap)) {
-      ccb.setFile(
-          new File(NodeFiles.jjtreeIncludeFile(context.treeOptions().getJJTreeOutputDirectory())));
-      ccb.setVersion(NodeFiles.nodeVersion).addTools(JJTreeGlobals.toolName);
+      ccb.setFile(new File(jjtreeIncludeFile(context.treeOptions().getJJTreeOutputDirectory())));
+      ccb.setVersion(nodeVersion).addTools(JJTreeGlobals.toolName);
       ccb.addOption(
           "MULTI",
           "NODE_USES_PARSER",
@@ -178,7 +172,7 @@ final class NodeFiles {
       ccb.println("#define " + guard);
       ccb.println();
       ccb.println("#include \"Node.h\"");
-      for (final String s : NodeFiles.nodesToBuild) {
+      for (final String s : nodesToBuild) {
         ccb.println("#include \"" + s + ".h\"");
         if (generateOneTreeImpl) {
           ccb.switchToMainFile();
@@ -199,8 +193,8 @@ final class NodeFiles {
     //    //    System.out.println(" * nodePackage : " + context.treeOptions().getNodePackage());
     //    System.out.println(
     //        " * jjtreeOutputDirectory : " + context.treeOptions().getJJTreeOutputDirectory());
-    //    System.out.println(" * nodesToBuild : " + NodeFiles.nodesToBuild);
-    for (final String node : NodeFiles.nodesToBuild) {
+    //    System.out.println(" * nodesToBuild : " + nodesToBuild);
+    for (final String node : nodesToBuild) {
       final File file =
           new File(
               //              new File(
@@ -213,11 +207,10 @@ final class NodeFiles {
 
       final CodeGeneratorSettings optionMap = CodeGeneratorSettings.of(Options.getOptions());
       optionMap.set(Options.NUO__PARSER_NAME, JJTreeGlobals.parserName);
-      optionMap.set("VISITOR_RETURN_TYPE", NodeFiles.getVisitorReturnType());
-      optionMap.set("VISITOR_DATA_TYPE", NodeFiles.getVisitorDataType());
+      optionMap.set("VISITOR_RETURN_TYPE", getVisitorReturnType());
+      optionMap.set("VISITOR_DATA_TYPE", getVisitorDataType());
       optionMap.set(
-          "VISITOR_RETURN_TYPE_VOID",
-          Boolean.valueOf(NodeFiles.getVisitorReturnType().equals("void")));
+          "VISITOR_RETURN_TYPE_VOID", Boolean.valueOf(getVisitorReturnType().equals("void")));
       optionMap.set("NODE_TYPE", node);
 
       try (CppCodeBuilder ccb = CppCodeBuilder.of(context, optionMap)) {
@@ -227,7 +220,7 @@ final class NodeFiles {
                 context.treeOptions().getJJTreeOutputDirectory(),
                 //                    context.treeOptions().getNodePackage()),
                 node + ".cc"));
-        ccb.setVersion(NodeFiles.nodeVersion).addTools(JJTreeGlobals.toolName);
+        ccb.setVersion(nodeVersion).addTools(JJTreeGlobals.toolName);
         ccb.addOption(
             "MULTI",
             "NODE_USES_PARSER",
@@ -256,9 +249,8 @@ final class NodeFiles {
     final List<String> nodeNames = ASTNodeDescriptor.getNodeNames();
 
     final File file =
-        new File(
-            context.treeOptions().getJJTreeOutputDirectory(), NodeFiles.nodeConstants() + ".h");
-    NodeFiles.headersForJJTreeH.add(file.getName());
+        new File(context.treeOptions().getJJTreeOutputDirectory(), nodeConstants() + ".h");
+    headersForJJTreeH.add(file.getName());
 
     try (CppCodeBuilder ccb = CppCodeBuilder.ofHeader(context, CodeGeneratorSettings.create())) {
       ccb.setFile(file);
@@ -338,8 +330,7 @@ final class NodeFiles {
     }
 
     try (CppCodeBuilder ccb = CppCodeBuilder.ofHeader(context, CodeGeneratorSettings.create())) {
-      ccb.setFile(
-          new File(NodeFiles.visitorIncludeFile(context.treeOptions().getJJTreeOutputDirectory())));
+      ccb.setFile(new File(visitorIncludeFile(context.treeOptions().getJJTreeOutputDirectory())));
 
       final String guard = "JAVACC_" + JJTreeGlobals.parserName.toUpperCase() + "_VISITOR_H";
       ccb.println("#ifndef " + guard);
@@ -352,8 +343,8 @@ final class NodeFiles {
         ccb.println("namespace " + Options.stringValue("NAMESPACE_OPEN"));
       }
 
-      NodeFiles.generateVisitorInterface(ccb, context);
-      NodeFiles.generateDefaultVisitor(ccb, context);
+      generateVisitorInterface(ccb, context);
+      generateDefaultVisitor(ccb, context);
 
       if (Options.hasNamespace()) {
         ccb.println(Options.stringValue("NAMESPACE_CLOSE"));
@@ -366,14 +357,14 @@ final class NodeFiles {
 
   private static void generateVisitorInterface(
       final CppCodeBuilder ccb, final JJTreeContext context) {
-    final String name = NodeFiles.visitorClass();
+    final String name = visitorClass();
     final List<String> nodeNames = ASTNodeDescriptor.getNodeNames();
 
     ccb.println("class " + name);
     ccb.println("{");
 
-    String argumentType = NodeFiles.getVisitorDataType();
-    final String returnType = NodeFiles.getVisitorReturnType();
+    String argumentType = getVisitorDataType();
+    final String returnType = getVisitorReturnType();
     if (!context.treeOptions().getVisitorDataType().equals("")) {
       argumentType = context.treeOptions().getVisitorDataType();
     }
@@ -391,7 +382,7 @@ final class NodeFiles {
             "  virtual "
                 + returnType
                 + " "
-                + NodeFiles.getVisitMethodName(nodeType)
+                + getVisitMethodName(nodeType)
                 + "(const "
                 + nodeType
                 + " *node, "
@@ -410,13 +401,13 @@ final class NodeFiles {
 
   private static void generateDefaultVisitor(
       final CppCodeBuilder ccb, final JJTreeContext context) {
-    final String className = NodeFiles.defaultVisitorClass();
+    final String className = defaultVisitorClass();
     final List<String> nodeNames = ASTNodeDescriptor.getNodeNames();
 
-    ccb.println("class " + className + " : public " + NodeFiles.visitorClass() + " {");
+    ccb.println("class " + className + " : public " + visitorClass() + " {");
 
-    final String argumentType = NodeFiles.getVisitorDataType();
-    final String ret = NodeFiles.getVisitorReturnType();
+    final String argumentType = getVisitorDataType();
+    final String ret = getVisitorReturnType();
 
     ccb.println("public:");
     ccb.println(
@@ -437,7 +428,7 @@ final class NodeFiles {
             "  virtual "
                 + ret
                 + " "
-                + NodeFiles.getVisitMethodName(nodeType)
+                + getVisitMethodName(nodeType)
                 + "(const "
                 + nodeType
                 + " *node, "
