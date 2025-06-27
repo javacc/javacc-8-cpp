@@ -302,8 +302,8 @@ Token * ${parserName}TokenManager::getNextToken() {
           if (trace_enabled()) {
             JJERR << JJWIDE(Read next char for a MORE:) << JJSPACE << disp_char(curChar)
 #if KEEP_LINE_COLUMN
-            << JJCOMMA << JJSPACE << JJWIDE(@) << JJSPACE
-            << input_stream->getBeginLine() << JJWIDE(:) << input_stream->getBeginColumn()
+                  << JJCOMMA << JJSPACE << JJWIDE(@) << JJSPACE
+                  << input_stream->getBeginLine() << JJWIDE(:) << input_stream->getBeginColumn()
 #fi
                   << JJSPACE << JJWIDE((tm)) << std::endl;
           }
