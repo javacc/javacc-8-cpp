@@ -1,2 +1,4 @@
 aa
 bb
+Lexical error at line 3, column 1.  Encountered: ',' ..after: "".
+Lexical error at line 3, column 3.  Encountered: ',' ..after: "".

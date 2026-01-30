@@ -232,6 +232,8 @@ Token * ${parserName}TokenManager::getNextToken() {
           if (trace_enabled()) {
             JJERR << JJWIDE(Found a TOKEN MATCH ***: <) << jjmatchedKind
                   << JJSPACE << JJWIDE(/) << JJSPACE
+                  << tokenImage[jjmatchedKind]
+                  << JJSPACE << JJWIDE(/) << JJSPACE
                   << JJDBQUOTE << addUnicodeEscapes(matchedToken->image()) << JJDBQUOTE
                   << JJWIDE(> at lexical state:) << JJSPACE << curLexState
                   << JJWIDE(; returning (tm)) << std::endl;

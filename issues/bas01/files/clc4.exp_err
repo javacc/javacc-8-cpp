@@ -1,2 +1,11 @@
-<DEFAULT>-0 Reached EOF (1st), @ 1:0 (tm)
+Read 1st char for any kind: `0 / '\u0000'´, @ 1:1 (tm)
+<DEFAULT>-0 Current input char: `0 / '\u0000'´, @ 1:1 (tm)
+  No string literal start with char: `0 / '\u0000'´ (tm)
+    Starting NFA with start state: <LineComment>-1 (tm)
+    Cur char: `0 / '\u0000'´ (tm)
+    Looking to move from state: <DEFAULT>-0, for token: <7 / <INTEGER>> (tm)
+    Looking to move from state: <LineComment>-1, for token: <10 / <Id>> (tm)
+    Done with NFA, at pos: 0 (tm)
+Matched empty string as kind: 2147483647 (tm)
+<DEFAULT>-0 Reached EOF (1st), @ 1:1 (tm)
 Input file parsed successfully
