@@ -672,7 +672,7 @@ JJString ${parserName}TokenManager::disp_state(int state) {
 }
 
 JJString ${parserName}TokenManager::disp_char(int ic) {
-  return std::to_wstring(ic) + L" / '" + add_escapes(ic) + L"'";
+  return std::to_wstring(ic) + L" / '" + add_escapes(ic) + L"'´";
 }
 \#endif
 
